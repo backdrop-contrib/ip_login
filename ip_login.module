@@ -60,7 +60,7 @@ function ip_login_help($path, $arg) {
   switch ($path) {
     case 'admin/settings/iplogin':
       $help =  '<p>';
-      $help .= t("This module allows this site to automatically authenticate and login users arriving with a chosen IP address.") . ' ';
+      $help .= t("This module allows this site to automatically authenticate and login users arriving with a chosen IP address - optinally at certain pages only.") . '</p> <p>';
       $help .= t("IP values can be stored in a user's profile (using the core <em>Profile</em> module) in the field selected by the <em>Profile module IP address</em> field, below.") . ' ';
       $help .= t(
         'It also allows users with the <code>administer ip login</code> and <code>can log in as another user</code> <a href="@permissions-link">permissions</a> to log out and log in as another user, with other users being forced to stay logged in.',
@@ -160,7 +160,7 @@ function ip_login_form_alter(&$form, &$form_state, $form_id) {
       $link_help = t(variable_get('ip_login_link_login_page_help', "Your computer's IP address has been matched and validated."));
       $markup .= '<br/>';
       $markup .= '<ul class="item-list">';
-      $markup .= '<li><strong>' . l($link_text, ATTEMPT_IP_LOGIN) . '</strong>';
+      $markup .= '<li><strong>' . l($link_text, ATTEMPT_IP_LOGIN, array('query' => array('ip_login_override_pages' => 'yes'))) . '</strong>';
       if (strlen($link_help)) $markup .= '<br/><small>' . filter_xss_admin($link_help) . '</small>';
       $markup .= '</li></ul>';
       $form['ip_login'] = array(
@@ -173,7 +173,7 @@ function ip_login_form_alter(&$form, &$form_state, $form_id) {
     $link_text = t(variable_get('ip_login_link_login_block', 'Log in automatically'));
     if (strlen($link_text)) { // hide if no link text
       $markup .= '<ul class="item-list">';
-      $markup .= '<li><strong>' . l($link_text, ATTEMPT_IP_LOGIN) . '</strong>';
+      $markup .= '<li><strong>' . l($link_text, ATTEMPT_IP_LOGIN, array('query' => array('ip_login_override_pages' => 'yes'))) . '</strong>';
       $markup .= '</li></ul>';
       $form['ip_login'] = array(
         '#value' => $markup,
@@ -244,6 +244,37 @@ function ip_login_login($uid) {
   if ($uid) { // if a uid is passed in
     // get user module and include some handy functions
     drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
+      
+    // Only do login on certain pages - if such pages are entered in admin page
+    // adapted from core Block module -> block_list($region)
+    if (!isset($_GET['ip_login_override_pages'])) {
+      $pages = variable_get('ip_login_active_pages', '');
+      if ($pages) {
+        $page_match = false;
+        // first char, if variable set, is 'check_mode' - remainder is paths to match or PHP
+        $check_mode = substr($pages, 0, 1);
+        $pages = substr($pages,1);
+        if ($check_mode < 2) {
+          $path = drupal_get_path_alias($_GET['q']);
+          // Compare with the internal and path alias (if any).
+          $page_match = drupal_match_path($path, $pages);
+          if ($path != $_GET['q']) {
+            $page_match = $page_match || drupal_match_path($_GET['q'], $pages);
+          }
+          // When $check_mode has a value of 0, the IP checkl happens on
+          // all pages except those listed in $pages. When set to 1, IPs
+          // are checked only on those pages listed in $pages.
+          $page_match = !($check_mode xor $page_match);
+        }
+        else {
+        print_r($page_match);
+          // evalutate PHP
+          $page_match = drupal_eval($pages);
+        }
+        // if we don't have a path/PHP match, don't log in
+        if (!$page_match) return;
+      }
+    }
 
     if ($account = user_load(array('uid' => $uid, 'status' => 1))) { // if loaded active user
       // login by assigning account to global $user object
@@ -380,7 +411,6 @@ function ip_login_match_quad($find_value, $in_range) {
  * Returns TRUE if a user has permission to log out and back in as another user
  */
 function _ip_login_can_use_alternate_account($user) {
-  return false;
   // only allow users with correct permission to log in as another user,
   // this presently enforced by an immediate re-login by IP
   if ($user->uid == 1) return TRUE; // super user can
@@ -412,4 +442,5 @@ function hook_uninstall() {
   variable_del('ip_login_link_login_page_help');
   variable_del('ip_login_link_login_page');
   variable_del('ip_login_suppress_messages');
+  variable_del('ip_login_active_pages');
 }

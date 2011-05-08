@@ -41,6 +41,12 @@ function ip_login_admin_settings() {
     '#description' => t('Check to enable IP Login, uncheck to disable. If unchecked no user will be able to login via IP address.'),
     '#default_value' => variable_get('ip_login_enabled', 1)
   );
+  $form['ip_login_suppress_messages'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Suppress IP Login messages'),
+    '#description' => t('Check to prevent IP Login showing any login-related messages.'),
+    '#default_value' => variable_get('ip_login_suppress_messages', 0)
+  );
   $form['ip_login_profile_ip_field'] = array(
     '#type' => 'select',
     '#title' => t('Profile module IP address field'),
@@ -61,12 +67,7 @@ function ip_login_admin_settings() {
     '#description' => t('<strong>Leave blank to send user back to their originally requested page</strong>, or enter the Drupal path users should be redirected to when automatically logged in. For example "user" or "&lt;front&gt;" etc.'),
     '#default_value' => variable_get('ip_login_destination', '')
   );
-  $form['ip_login_suppress_messages'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Suppress IP Login messages'),
-    '#description' => t('Check to prevent IP Login showing any login-related messages.'),
-    '#default_value' => variable_get('ip_login_suppress_messages', 0)
-  );
+
   $form['login_page'] = array(
     '#type' => 'fieldset',
     '#title' => t('Login page link'),
@@ -111,6 +112,49 @@ function ip_login_admin_settings() {
     '#default_value' => variable_get('ip_login_link_login_block_weight', -10),
     '#description' => t('Optional. The position withn the login block form for this link.'),
   );
+
+  // allows ip check on certain pages only
+  $form['active_pages'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Page specific IP logins'),
+    '#description' => t('You can choose specific pages or paths that IP Login will or will not try to log in a user. Note that this will not affect users who have <code>can log in as another user</code> permission who have already logged out.'),
+    '#collapsible' => TRUE,
+  );
+  $access = user_access('use PHP for block visibility');
+  $pages = variable_get('ip_login_active_pages', '');
+  if ($pages) {
+    $check_mode = substr($pages, 0 ,1);
+    $pages = substr($pages,1);
+  }
+  if ($check_mode == 2 && !$access) {
+    $form['active_pages'] = array();
+    $form['active_pages']['check_mode'] = array('#type' => 'value', '#value' => 2);
+    $form['active_pages']['check_pages'] = array('#type' => 'value', '#value' => $pages);
+  }
+  else {
+    $options = array(t('Login by IP on every page except the listed pages.'), t('Login by IP only on the listed pages.'));
+    $description = t("Enter one page per line as Drupal paths. The '*' character is a wildcard. Example paths are %blog for the blog page and %blog-wildcard for every personal blog. %front is the front page.", array('%blog' => 'blog', '%blog-wildcard' => 'blog/*', '%front' => '<front>'));
+
+    if ($access) {
+      $options[] = t('login by IP if the following PHP code returns <code>TRUE</code> (PHP-mode, experts only).');
+      $description .= ' '. t('If the PHP-mode is chosen, enter PHP code between %php. Note that executing incorrect PHP-code can break your Drupal site.', array('%php' => '<?php ?>'));
+    }
+    $form['active_pages']['check_mode'] = array(
+      '#type' => 'radios',
+      '#title' => t('Login by IP on specific pages'),
+      '#options' => $options,
+      '#default_value' => $check_mode,
+    );
+    $form['active_pages']['check_pages'] = array(
+      '#type' => 'textarea',
+      '#title' => t('Pages'),
+      '#default_value' => $pages,
+      '#description' => $description,
+    );
+  }
+  
+  $form['#submit'][] = 'ip_login_admin_settings_submit';
+  
   /* @ todo implement hook_menu_alter to add this functionality?
   $form['link_options']['ip_login_link_navigation_menu'] = array(
     '#type' => 'textfield',
@@ -121,3 +165,12 @@ function ip_login_admin_settings() {
   return system_settings_form($form);
 }
 
+
+function ip_login_admin_settings_submit($form, &$form_state) {
+  if ($form_state['values']['check_pages']) {
+    variable_set('ip_login_active_pages', $form_state['values']['check_mode'] . $form_state['values']['check_pages']);
+  }
+  else {
+    variable_set('ip_login_active_pages', '');
+  }
+}
