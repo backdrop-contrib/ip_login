@@ -1,6 +1,6 @@
 ; $Id: ip_login.info $
 name = IP Login
-description = Allows users to login automatically by an IP address, range or wildcards
+description = Allows users to be automatically login in by matching IP address, range or wildcards.
 core = 6.x
 version = "6.x-2.x-dev"
-
+dependencies[] = user

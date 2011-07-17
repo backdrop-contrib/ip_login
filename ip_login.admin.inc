@@ -1,14 +1,12 @@
 <?php
 /**
  * Sets up the IP Login admin page settings
- * 
+ *
  * @return $form
  *    A normal Drupal FormAPI form
  */
 function ip_login_admin_settings() {
-
-
-  // get all IP-login enabled users and display
+  // get all IP-login enabled users and display in a table
   $rows = array();
   $result = db_query(
     "SELECT users.name, users.uid, ip_login_user.ip_match
@@ -22,18 +20,15 @@ function ip_login_admin_settings() {
       l(t('edit'), 'user/'. $row->uid . '/edit', array('fragment' => 'ip_login'))
     );
   }
-  
   $header = array('Username', 'IP range', 'Operations');
   $users_ip_enabled = t('There are presently no users with IP login ranges set. Edit a user account to add one.');
   if (isset($rows[0])) $users_ip_enabled = theme_table($header, $rows);
-  
   $form['ip_login_users_container'] = array(
     '#type' => 'fieldset',
     '#title' => t('IP Login-enabled users'),
     '#description' => t('Users for which IP Login is enabled are listed below.'),
     '#value' => $users_ip_enabled,
   );
-
 
   $form['ip_login_enabled'] = array(
     '#type' => 'checkbox',
@@ -77,9 +72,9 @@ function ip_login_admin_settings() {
     '#title' => t('Weight'),
     '#delta' => 20,
     '#default_value' => variable_get('ip_login_link_login_page_weight', -10),
-    '#description' => t('Optional. The position withn the login page form for this link.'),
+    '#description' => t('Optional. The position within the login page form for this link.'),
   );
-  
+
   $form['login_block'] = array(
     '#type' => 'fieldset',
     '#title' => t('Login block link'),
@@ -97,7 +92,7 @@ function ip_login_admin_settings() {
     '#title' => t('Weight'),
     '#delta' => 20,
     '#default_value' => variable_get('ip_login_link_login_block_weight', -10),
-    '#description' => t('Optional. The position withn the login block form for this link.'),
+    '#description' => t('Optional. The position within the login block form for this link.'),
   );
 
   // allows ip check on certain pages only
@@ -139,9 +134,7 @@ function ip_login_admin_settings() {
       '#description' => $description,
     );
   }
-  
   $form['#submit'][] = 'ip_login_admin_settings_submit';
-
   return system_settings_form($form);
 }
 

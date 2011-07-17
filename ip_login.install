@@ -8,17 +8,18 @@
 /**
  * Implementation of hook_install().
  */
-function ip_login_install() {  
+function ip_login_install() {
   drupal_install_schema('ip_login');
   drupal_set_message(st("IP Login settings are available under !link",
     array( '!link' => l(st('Administer > Site configuration > IP Login settings'),  'admin/settings/iplogin' ) )
   ));
+  variable_set('ip_login_enabled', 1);
 }
 
 
 /**
  * Implementation of hook_schema()
- */ 
+ */
 function ip_login_schema() {
   $schema['ip_login_user'] = array(
     'description' => t('Stores the IP Login address and range matches for users'),
@@ -28,7 +29,7 @@ function ip_login_schema() {
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
-        'default' => 0,  
+        'default' => 0,
       ),
       'ip_match' => array(
         'description' => t('IP ranges and addresses'),
@@ -43,7 +44,7 @@ function ip_login_schema() {
       'uid' => array('uid'),
     ),
   );
-  return $schema; 
+  return $schema;
 }
 
 
@@ -52,16 +53,15 @@ function ip_login_schema() {
  */
 function ip_login_uninstall() {
   drupal_uninstall_schema('ip_login');
+  variable_del('ip_login_active_pages');
   variable_del('ip_login_enabled');
   variable_del('ip_login_destination');
-  variable_del('ip_login_profile_ip_field');
-  variable_del('ip_login_link_login_block_weight');
   variable_del('ip_login_link_login_block');
-  variable_del('ip_login_link_login_page_weight');
-  variable_del('ip_login_link_login_page_help');
+  variable_del('ip_login_link_login_block_weight');
   variable_del('ip_login_link_login_page');
+  variable_del('ip_login_link_login_page_help');
+  variable_del('ip_login_link_login_page_weight');
   variable_del('ip_login_suppress_messages');
-  variable_del('ip_login_active_pages');
 }
 
 
@@ -79,7 +79,7 @@ function ip_login_update_6200() {
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
-        'default' => 0,  
+        'default' => 0,
       ),
       'ip_match' => array(
         'description' => t('IP ranges and addresses'),
@@ -93,7 +93,7 @@ function ip_login_update_6200() {
 
   // add table
   $ret = array();
-  db_create_table($ret, 'ip_login_user', $schema['ip_login_user']); 
+  db_create_table($ret, 'ip_login_user', $schema['ip_login_user']);
   db_add_index($ret, 'ip_login_user', 'uid', array('uid'));
 
   // import old profile values into new ip_login_user table
