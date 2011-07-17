@@ -10,12 +10,11 @@
  * 
  * @todo for security, IP addresses and ranges should really be checked for collisions between existing accounts users
  * @todo Check usage of $GLOBALS['conf']['cache'] in ip_login_attempt_login())
- * @todo Integrate with Content Profile
 */
 
 define('ATTEMPT_IP_LOGIN', 'user/login_by_ip'); // path for ip login
 define('IP_CHECKED', 'ip_login_checked'); // true when IP check has happened
-define('IP_UID_MATCH', 'ip_login_uid'); // true when a user profile matches the request IP
+define('IP_UID_MATCH', 'ip_login_uid'); // true when a user account matches the request IP
 define('LOGIN_BY_IP_COMPLETE', 'ip_login_by_ip_complete'); // true when IP login process has completed
 define('LOGIN_AS_DIFFERENT_USER', 'ip_login_as_different_user'); // true when user wants alternate account
 
@@ -61,36 +60,92 @@ function ip_login_help($path, $arg) {
     case 'admin/settings/iplogin':
       $help =  '<p>';
       $help .= t("This module allows this site to automatically authenticate and login users arriving with a chosen IP address - optinally at certain pages only.") . '</p> <p>';
-      $help .= t("IP values can be stored in a user's profile (using the core <em>Profile</em> module) in the field selected by the <em>Profile module IP address</em> field, below.") . ' ';
       $help .= t(
         'It also allows users with the <code>administer ip login</code> and <code>can log in as another user</code> <a href="@permissions-link">permissions</a> to log out and log in as another user, with other users being forced to stay logged in.',
         array('@permissions-link' => '/admin/user/permissions#module-ip_login'));
-      $help .=  '</p><p>';
-      $help .= t('Accepted profile field IP values are:');
-      $help .= '</p><ul><li>';
-      $help .= t("Single IP matches like <code>123.123.123.123</code>");
-      $help .= '</li><li>';
-      $help .= t("Wildcards using an asterisk (<code>*</code>) in any quadrant except the first one, for example <code>123.123.123.*</code> or <code>100.*.*.*</code> etc.");
-      $help .= '</li><li>';
-      $help .= t("Ranges using a hyphen (<code>-</code>) in any quadrant except the first one, for example <code>123.123.123.100-200</code> etc.");
-      $help .= '</li><li>';
-      $help .= t("Any number of comma-separated IP addresses or ranges like <code>10.11.12.13, 123.123.123.100-200, 123.123.124-125.*</code> etc.");
-      $help .= '</li></ul>';
-      return $help;
+      $help .=  '</p>';
+      $help .= ip_login_help_ranges();
   }
+  return $help;
 }
 
+/**
+ * Provides help about accepted values of IP ranges etc.
+ */
+function ip_login_help_ranges($intro = '') {
+  $help .= '<p id="ip_login">' . $intro . t('Accepted IP Login match values are:') . '</p>';
+  $help .= '<ul><li>';
+  $help .= t("Single IP matches like <code>123.123.123.123</code>");
+  $help .= '</li><li>';
+  $help .= t("Wildcards using an asterisk (<code>*</code>) in any quadrant except the first one, for example <code>123.123.123.*</code> or <code>100.*.*.*</code> etc.");
+  $help .= '</li><li>';
+  $help .= t("Ranges using a hyphen (<code>-</code>) in any quadrant except the first one, for example <code>123.123.123.100-200</code> etc.");
+  $help .= '</li><li>';
+  $help .= t("Any number of comma-separated IP addresses or ranges like <code>10.11.12.13, 123.123.123.100-200, 123.123.124-125.*</code> etc.");
+  $help .= '</li></ul>';
+  return $help;
+}
 
 /**
  * Implementation of hook_user().
  * 
- * Allows users to log out without immediately logging them back in.
+ * Allows user admin of IP addresses.
+ *
+ * Also allows users to log out without immediately logging them back in.
  * NOTE: this module may stop other modules hook_user(logout) code firing as it
  * destroys the session
  */
 function ip_login_user($op, &$edit, &$account, $category = NULL) {
   // if logging out and we're currently logged in by IP...
-  if ($op == "logout" && $_SESSION[IP_UID_MATCH] >0) ip_login_as_different_user();
+  switch ($op) {
+  case 'logout': // check if user can login as another, or just re-login
+    if ($_SESSION[IP_UID_MATCH] >0) ip_login_as_different_user();
+    break;
+  case 'form': // add IP Login field to the User Account form.
+    if ($category == 'account' && user_access('administer ip login', $user)) {
+       // wrap in a fieldset
+      $form['ip_login_matches'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('IP Login'),
+        '#description' => ip_login_help_ranges(t('This user can be automatically logged in by IP address. ')),
+        '#weight' => '-1'
+      );
+      $form['ip_login_matches']['ip_login_match'] = array(
+        '#type' => 'textfield',
+        '#title' => t('IP address matches'),
+        '#description' => t('IP matches based in format listed above. Leave blank to disable automatci login by IP for this user.'),
+        '#default_value' => _ip_login_get_user_range($account->uid)
+      );
+      return $form;
+    }
+    break;
+  case 'validate' :
+    if ($category == 'account' && isset($edit['ip_login_match'])) {
+      //TODO: replace with regexp ideally
+      // validate: replace all non-numeric but legal IP range chars with '|'
+      $ip_login_addresses = strtr($edit['ip_login_match'], ' ,.-', '||||');
+      $ip_ok = FALSE;
+      foreach (explode('|', $ip_login_addresses) as $quad) {
+        if (!is_numeric($quad)) {
+          // bad entry, warn & bail
+          form_set_error(
+            'ip_login_match',
+            t('Only numbers, spaces, commas, dots and hyphens allowed in IP ranges.'));
+          break;
+        }
+      }
+    }
+    break;
+  case 'update' :
+  case 'insert' :
+    if ($category == 'account' && isset($edit['ip_login_match'])) {
+      _ip_login_set_user_range(
+        $account->uid,
+        trim(check_plain($edit['ip_login_match']))
+      );
+    }
+    break;
+  }
 }
 
 
@@ -185,7 +240,7 @@ function ip_login_form_alter(&$form, &$form_state, $form_id) {
 
 
 /**
- * Compares the current request's IP address to the user profile IP range field
+ * Compares the current request's IP address to the ip_login_user table
  * and then does a proper match for each match on exact, ranges and wildcards
  * @param $ip
  *    An ip address string, usually from the current user's request
@@ -193,24 +248,21 @@ function ip_login_form_alter(&$form, &$form_state, $form_id) {
  *    The uid of the matching user account
  */
 function ip_login_check($ip, $diagnostics = FALSE) {
-  // break up IP, get profile field for ip address
+  // break up IP for ip address
   $addr = explode(".", check_plain($ip));
-  $profile_field = variable_get('ip_login_profile_ip_field', 'profile_ip');
   $matches = FALSE;
 
-  // Find user profile ip values that matches the first part of the user's IP
-  // ANYWHERE except the end - not desparetly efficient but works consistently
-  // with comma separated IP ranges and spaces in the profile field.
-  $partial_matches = db_query("SELECT pv.uid, pv.value FROM {profile_values} pv
-             INNER JOIN {profile_fields} pf ON pv.fid = pf.fid
-             WHERE pf.name = '%s' AND (pv.value) LIKE ('%s')", $profile_field, '%' . $addr[0] . '.%');
+  // Find user ip matches on the first part of the user's IP ANYWHERE except the end.
+  // not desparetly efficient but works consistently with comma separated IP ranges and spaces
+  // and these checks are only done once per session
+  $partial_matches = db_query(
+      "SELECT uid, ip_match FROM {ip_login_user} WHERE ip_match LIKE ('%s')", '%' . $addr[0] . '.%');
 
   $uid_matched = 0;
-  while (($partial_match = db_fetch_object($partial_matches)) && !$uid_matched) {
-
+  while (($row = db_fetch_object($partial_matches)) && !$uid_matched) {
     // multiple values are separated with commas so try each in turn
-    $profile_ip_ranges = explode(",", $partial_match->value);
-    foreach ($profile_ip_ranges as $ip_range) {
+    $user_ip_ranges = explode(",", $row->ip_match);
+    foreach ($user_ip_ranges as $ip_range) {
 
       // clear any whitespace, break into quads, then compare
       $ip_range = explode('.', trim($ip_range));
@@ -220,7 +272,7 @@ function ip_login_check($ip, $diagnostics = FALSE) {
       }
       // if it matches, stop here and do login
       if ($matches) {
-        $uid_matched = $partial_match->uid;
+        $uid_matched = $row->uid;
         break 2; // escape the foreach and while
       }
     }
@@ -235,7 +287,7 @@ function ip_login_check($ip, $diagnostics = FALSE) {
 }
 
 /**
- * Log user with $uid in ip address and profile_ip profile field
+ * Logs user with $uid into the site, remembering any IP Login specifics necessary
  * 
  * @param $ip
  *    An ip address string
@@ -267,7 +319,6 @@ function ip_login_login($uid) {
           $page_match = !($check_mode xor $page_match);
         }
         else {
-        print_r($page_match);
           // evalutate PHP
           $page_match = drupal_eval($pages);
         }
@@ -427,20 +478,50 @@ function _ip_login_can_use_alternate_account($user) {
   return user_access('can log in as another user', $user);
 }
 
-
-
-/*
- * Implementation of hook_uninstall
+/**
+ * Gets a user's IP range match string by uid
+ * @param $uid
+ *    The user ID
+ * @return 
+ *    The IP range string for the user if one is found, otherwise NULL.
+ *
  */
-function hook_uninstall() {
-  variable_del('ip_login_enabled');
-  variable_del('ip_login_destination');
-  variable_del('ip_login_profile_ip_field');
-  variable_del('ip_login_link_login_block_weight');
-  variable_del('ip_login_link_login_block');
-  variable_del('ip_login_link_login_page_weight');
-  variable_del('ip_login_link_login_page_help');
-  variable_del('ip_login_link_login_page');
-  variable_del('ip_login_suppress_messages');
-  variable_del('ip_login_active_pages');
+function _ip_login_get_user_range($uid) {
+  if (isset($uid) && is_numeric($uid)) {
+    if($result = db_fetch_object(db_query("SELECT * FROM {ip_login_user} WHERE uid = %d", $uid))) {
+      return $result->ip_match;
+    }
+  }
+  return NULL;
+}
+
+
+/**
+ * Sets the IP range match string for a user.
+ *
+ * If $ip_range is NULL, any IP Login record for this user is removed. Otherwise a row is inserted or updated.
+ * @param $uid
+ *    The user ID
+  * @param $ip_range
+ *    IP range match string
+ * @return TRUE
+ *    If an update occured sucessfully.
+ */
+function _ip_login_set_user_range($uid, $ip_range = NULL) {
+  if (isset($uid) && is_numeric($uid)) {
+    if (is_null($ip_range)) {
+      // null ip range = delete row
+      return db_query("DELETE FROM {ip_login_user} WHERE uid = %d", $uid);
+    }
+    else {
+      if (is_null(_ip_login_get_user_range($uid))) {
+        // no range presently = insert row
+        return db_query("INSERT INTO {ip_login_user} (`uid`, `ip_match`) VALUES (%d, '%s')", $uid, $ip_range);
+      }
+      else {
+        return db_query("UPDATE {ip_login_user} SET `ip_match` = '%s' WHERE `uid` = %d", $ip_range, $uid);
+      }
+    }
+  }
+  return FALSE;
 }

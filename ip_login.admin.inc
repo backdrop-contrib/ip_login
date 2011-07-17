@@ -1,6 +1,4 @@
 <?php
-// $Id: ip_login.admin.inc $
-
 /**
  * Sets up the IP Login admin page settings
  * 
@@ -8,33 +6,35 @@
  *    A normal Drupal FormAPI form
  */
 function ip_login_admin_settings() {
-  // IP Login depends on core Profile module...
-  $result = db_query("SELECT DISTINCT name FROM {profile_fields}");
-  while ($field = db_fetch_object($result)) {
-    $fields[$field->name] = $field->name;
-  }
-  if (!$fields || !variable_get('ip_login_profile_ip_field', '')) {
-    drupal_set_message(
-      t("You can use the !profile_module to add a text field to the user profile to store the user's ip address.",
-        array('!profile_module' => l('profile module admin', 'admin/user/profile/add/textfield')))
-      ); 
-  }
-  // show a warning if field is not hidden
-  if (strlen(variable_get('ip_login_profile_ip_field', ''))) {
-    $result = db_query("SELECT * FROM {profile_fields} WHERE name = '%s'", variable_get('ip_login_profile_ip_field', ''));
-    $field = db_fetch_object($result);
-    $secure = TRUE;
-    if ($field->visibility != PROFILE_HIDDEN) { // Hidden profile field, only accessible by administrators, modules and themes
-      drupal_set_message(
-        t("The field %profile_field you have chosen to store IP matches is accessible by non-administators. It is strongly recommended this field's visibility is kept 'Hidden'.",
-          array('%profile_field' => $field->name),
-          'warning'
-        )
-      );
-      $secure = FALSE;
-    }
+
+
+  // get all IP-login enabled users and display
+  $rows = array();
+  $result = db_query(
+    "SELECT users.name, users.uid, ip_login_user.ip_match
+     FROM users
+     INNER JOIN ip_login_user ON ip_login_user.uid = users.uid
+     ORDER BY ip_login_user.ip_match");
+  while ($row = db_fetch_object($result)) {
+    $rows[] = array(
+      $row->name,
+      $row->ip_match,
+      l(t('edit'), 'user/'. $row->uid . '/edit', array('fragment' => 'ip_login'))
+    );
   }
   
+  $header = array('Username', 'IP range', 'Operations');
+  $users_ip_enabled = t('There are presently no users with IP login ranges set. Edit a user account to add one.');
+  if (isset($rows[0])) $users_ip_enabled = theme_table($header, $rows);
+  
+  $form['ip_login_users_container'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('IP Login-enabled users'),
+    '#description' => t('Users for which IP Login is enabled are listed below.'),
+    '#value' => $users_ip_enabled,
+  );
+
+
   $form['ip_login_enabled'] = array(
     '#type' => 'checkbox',
     '#title' => t('IP Login enabled'),
@@ -47,20 +47,7 @@ function ip_login_admin_settings() {
     '#description' => t('Check to prevent IP Login showing any login-related messages.'),
     '#default_value' => variable_get('ip_login_suppress_messages', 0)
   );
-  $form['ip_login_profile_ip_field'] = array(
-    '#type' => 'select',
-    '#title' => t('Profile module IP address field'),
-    '#description' => t('Select the profile field containing the user IP address.'),
-    '#options' => $fields,
-    '#default_value' => variable_get('ip_login_profile_ip_field', 'profile_ip')
-  );
-  // show extra warning if not profile field visibliliy not hidden
-  if (!$secure) {
-    $form['profile_field_security_warning'] = array(
-      '#type' => 'markup',
-      '#value' => '<div class="error">' . t("This profile field's visiblity should ideally be set to 'Hidden' for best security") . '</div>'
-    );
-  }
+
   $form['ip_login_destination'] = array(
     '#type' => 'textfield',
     '#title' => t('Destination after successful login by IP'),
@@ -154,14 +141,7 @@ function ip_login_admin_settings() {
   }
   
   $form['#submit'][] = 'ip_login_admin_settings_submit';
-  
-  /* @ todo implement hook_menu_alter to add this functionality?
-  $form['link_options']['ip_login_link_navigation_menu'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Navigation menu item text'),
-    '#description' => t('Text for navigation menu link. Blank to remove link, defaults to "Log in automatically"'),
-    '#default_value' => variable_get('ip_login_link_navigation_menu', t('Log in automatically')),
-  ); */
+
   return system_settings_form($form);
 }
 
