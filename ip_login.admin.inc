@@ -1,33 +1,16 @@
 <?php
 /**
- * Sets up the IP Login admin page settings
+ * @file
+ * Sets up the IP Login admin page settings.
  *
- * @return $form
- *    A normal Drupal FormAPI form
  */
+
 function ip_login_admin_settings() {
-  // get all IP-login enabled users and display in a table
-  $rows = array();
-  $result = db_query(
-    "SELECT users.name, users.uid, ip_login_user.ip_match
-     FROM users
-     INNER JOIN ip_login_user ON ip_login_user.uid = users.uid
-     ORDER BY ip_login_user.ip_match");
-  while ($row = db_fetch_object($result)) {
-    $rows[] = array(
-      $row->name,
-      $row->ip_match,
-      l(t('edit'), 'user/'. $row->uid . '/edit', array('fragment' => 'ip_login'))
-    );
-  }
-  $header = array('Username', 'IP range', 'Operations');
-  $users_ip_enabled = t('There are presently no users with IP login ranges set. Edit a user account to add one.');
-  if (isset($rows[0])) $users_ip_enabled = theme_table($header, $rows);
   $form['ip_login_users_container'] = array(
     '#type' => 'fieldset',
     '#title' => t('IP Login-enabled users'),
     '#description' => t('Users for which IP Login is enabled are listed below.'),
-    '#value' => $users_ip_enabled,
+    '#value' => _ip_login_users_display_table()
   );
 
   $form['ip_login_enabled'] = array(
@@ -105,8 +88,11 @@ function ip_login_admin_settings() {
   $access = user_access('use PHP for block visibility');
   $pages = variable_get('ip_login_active_pages', '');
   if ($pages) {
-    $check_mode = substr($pages, 0 ,1);
-    $pages = substr($pages,1);
+    $check_mode = substr($pages, 0, 1);
+    $pages = substr($pages, 1);
+  }
+  else {
+    $check_mode = '';
   }
   if ($check_mode == 2 && !$access) {
     $form['active_pages'] = array();
@@ -119,7 +105,7 @@ function ip_login_admin_settings() {
 
     if ($access) {
       $options[] = t('login by IP if the following PHP code returns <code>TRUE</code> (PHP-mode, experts only).');
-      $description .= ' '. t('If the PHP-mode is chosen, enter PHP code between %php. Note that executing incorrect PHP-code can break your Drupal site.', array('%php' => '<?php ?>'));
+      $description .= ' ' . t('If the PHP-mode is chosen, enter PHP code between %php. Note that executing incorrect PHP-code can break your Drupal site.', array('%php' => '<?php ?>'));
     }
     $form['active_pages']['check_mode'] = array(
       '#type' => 'radios',
@@ -138,12 +124,35 @@ function ip_login_admin_settings() {
   return system_settings_form($form);
 }
 
-
 function ip_login_admin_settings_submit($form, &$form_state) {
   if ($form_state['values']['check_pages']) {
     variable_set('ip_login_active_pages', $form_state['values']['check_mode'] . $form_state['values']['check_pages']);
   }
   else {
     variable_set('ip_login_active_pages', '');
+  }
+}
+
+function _ip_login_users_display_table() {
+  // get all IP-login enabled users and display in a table on the admin page
+  $rows = array();
+  $result = db_query(
+    "SELECT users.name, users.uid, ip_login_user.ip_match
+     FROM users
+     INNER JOIN ip_login_user ON ip_login_user.uid = users.uid
+     ORDER BY ip_login_user.ip_match");
+  while ($row = db_fetch_object($result)) {
+    $rows[] = array(
+      $row->name,
+      $row->ip_match,
+      l(t('edit'), 'user/' . $row->uid . '/edit', array('fragment' => 'ip_login'))
+    );
+  }
+  $header = array('Username', 'IP range', 'Operations');
+  if (isset($rows[0])) {
+    return theme_table($header, $rows);
+  }
+  else {
+   return t('There are presently no users with IP login ranges set. Edit a user account to add one.');
   }
 }

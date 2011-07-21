@@ -5,19 +5,16 @@
  * updated by Jim Kirkpatrick
  */
 
-/* recently done:
- *    fixed a few incorrect usages of t()
- *
+/*
  * @todo for security, IP addresses and ranges should really be checked for collisions between existing accounts users
  * @todo Check usage of $GLOBALS['conf']['cache'] in ip_login_attempt_login())
-*/
+ */
 
 define('ATTEMPT_IP_LOGIN', 'user/login_by_ip'); // path for ip login
-define('IP_CHECKED', 'ip_login_checked'); // true when IP check has happened
-define('IP_UID_MATCH', 'ip_login_uid'); // true when a user account matches the request IP
-define('LOGIN_BY_IP_COMPLETE', 'ip_login_by_ip_complete'); // true when IP login process has completed
-define('LOGIN_AS_DIFFERENT_USER', 'ip_login_as_different_user'); // true when user wants alternate account
-
+define('IP_CHECKED', 'ip_login_checked'); // TRUE when IP check has happened
+define('IP_UID_MATCH', 'ip_login_uid'); // TRUE when a user account matches the request IP
+define('LOGIN_BY_IP_COMPLETE', 'ip_login_by_ip_complete'); // TRUE when IP login process has completed
+define('LOGIN_AS_DIFFERENT_USER', 'ip_login_as_different_user'); // TRUE when user wants alternate account
 
 /**
  * Implementation of hook_boot().
@@ -25,31 +22,27 @@ define('LOGIN_AS_DIFFERENT_USER', 'ip_login_as_different_user'); // true when us
  *   see http://drupal.org/node/509028
  */
 function ip_login_boot() {
+  // skip rest of this if user is logged in
+  global $user;
+  if ($user->uid != 0) return;
+
   // skip rest of this if the admin has disabled IP login
   if (!variable_get('ip_login_enabled', 1)) return;
 
   // get sanitised session variables
-  $_SESSION[IP_CHECKED] = (isset($_SESSION[IP_CHECKED]) ? $_SESSION[IP_CHECKED] : FALSE);
   $_SESSION[LOGIN_AS_DIFFERENT_USER] = (isset($_SESSION[LOGIN_AS_DIFFERENT_USER]) ? $_SESSION[LOGIN_AS_DIFFERENT_USER] : FALSE);
+
   $_SESSION[LOGIN_BY_IP_COMPLETE] = (isset($_SESSION[LOGIN_BY_IP_COMPLETE]) ? $_SESSION[LOGIN_BY_IP_COMPLETE] : FALSE);
 
-  // have we checked user IP?
-  if (!$_SESSION[IP_CHECKED]) {
-    ip_login_check(ip_address());
-    // $_SESSION[IP_CHECKED] is now true, $_SESSION[IP_UID_MATCH] now contains uid matched or 0 if no match;
-  }
-
-  // get user and check make sure they want to be auto-logged in
-  global $user;
-  if (!$_SESSION[LOGIN_BY_IP_COMPLETE] && $user->uid == 0 && !$_SESSION[LOGIN_AS_DIFFERENT_USER]) {
-    // not ip logged in, or wanting another account
-    if ($_SESSION[IP_UID_MATCH] > 0) {
-      // we have a matching uid so log in
-      ip_login_login($_SESSION[IP_UID_MATCH]);
+  // check the user IP
+  $matched_uid = ip_login_check(ip_address());
+  if ($matched_uid > 0) {
+    if (!$_SESSION[LOGIN_AS_DIFFERENT_USER]) {
+      // not ip logged in, or indeed wanting to log in again as another account
+      ip_login_login($matched_uid);
     }
   }
 }
-
 
 /**
  * Implementation of hook_help().
@@ -57,7 +50,7 @@ function ip_login_boot() {
 function ip_login_help($path, $arg) {
   // @todo use t()
   switch ($path) {
-    case 'admin/settings/iplogin':
+    case 'admin/settings/ip_login':
       $help =  '<p>';
       $help .= t("This module allows this site to automatically authenticate and login users arriving with a chosen IP address - optionally at certain pages only.") . '</p> <p>';
       $help .= t(
@@ -73,7 +66,7 @@ function ip_login_help($path, $arg) {
  * Provides help about accepted values of IP ranges etc.
  */
 function ip_login_help_ranges($intro = '') {
-  $help .= '<p id="ip_login">' . $intro . t('Accepted IP Login match values are:') . '</p>';
+  $help .= '<p id="ip_login">' . $intro . ' ' . t('Accepted IP Login match values are:') . '</p>';
   $help .= '<ul><li>';
   $help .= t("Single IP matches like <code>123.123.123.123</code>");
   $help .= '</li><li>';
@@ -99,9 +92,7 @@ function ip_login_user($op, &$edit, &$account, $category = NULL) {
   // if logging out and we're currently logged in by IP...
   switch ($op) {
   case 'logout': // check if user can login as another, or just re-login
-    if ($_SESSION[IP_UID_MATCH] >0) {
-      ip_login_as_different_user();
-    }
+    ip_login_user_logout();
     break;
   case 'form': // add IP Login field to the User Account form.
     if ($category == 'account' && user_access('administer ip login', $user)) {
@@ -109,13 +100,13 @@ function ip_login_user($op, &$edit, &$account, $category = NULL) {
       $form['ip_login_matches'] = array(
         '#type' => 'fieldset',
         '#title' => t('IP Login'),
-        '#description' => ip_login_help_ranges(t('This user can be automatically logged in by IP address. ')),
+        '#description' => ip_login_help_ranges(t('This user can be automatically logged in by IP address.')),
         '#weight' => '-1'
       );
       $form['ip_login_matches']['ip_login_match'] = array(
         '#type' => 'textfield',
         '#title' => t('IP address matches'),
-        '#description' => t('IP matches based in format listed above. Leave blank to disable automatci login by IP for this user.'),
+        '#description' => t('IP matches based in format listed above. Leave blank to disable automatic login by IP for this user.'),
         '#default_value' => _ip_login_get_user_range($account->uid)
       );
       return $form;
@@ -149,7 +140,6 @@ function ip_login_user($op, &$edit, &$account, $category = NULL) {
   }
 }
 
-
 /**
  * Implementation of hook_menu().
  */
@@ -160,7 +150,7 @@ function ip_login_menu() {
     'page callback' => 'ip_login_attempt_login',
     'type' => MENU_CALLBACK,
   );
-  $items['admin/settings/iplogin'] = array(
+  $items['admin/settings/ip_login'] = array(
     'title' => 'IP Login',
     'description' => 'Configure IP Login settings',
     'access callback' => 'user_access',
@@ -173,16 +163,14 @@ function ip_login_menu() {
   return $items;
 }
 
-
 /**
  * Returns TRUE if login by IP can happen
  *
  * Callback function for hook_menu (menu access)
  */
 function ip_login_is_possible() {
-  return ($_SESSION[IP_UID_MATCH] > 0);
+  return $_SESSION[IP_UID_MATCH] > 0;
 }
-
 
 /**
  * Checks the request IP and logs user in there's a match by calling
@@ -191,12 +179,13 @@ function ip_login_is_possible() {
  * Callback function for hook_menu
  */
 function ip_login_attempt_login() {
-  $GLOBALS['conf']['cache'] = false; // don't cache - not sure if this is correct usage
+  $GLOBALS['conf']['cache'] = FALSE; // don't cache - not sure if this is correct usage
   $uid_matched = ip_login_check(ip_address());
-  if ($uid_matched) ip_login_login($uid_matched);
+  if ($uid_matched) {
+    ip_login_login($uid_matched);
+  }
   drupal_goto(variable_get('ip_login_destination', 'user'));
 }
-
 
 /**
  * Implementation of hook_perm().
@@ -243,7 +232,6 @@ function ip_login_form_alter(&$form, &$form_state, $form_id) {
   }
 }
 
-
 /**
  * Compares the current request's IP address to the ip_login_user table
  * and then does a proper match for each match on exact, ranges and wildcards
@@ -253,12 +241,17 @@ function ip_login_form_alter(&$form, &$form_state, $form_id) {
  *    The uid of the matching user account
  */
 function ip_login_check($ip, $diagnostics = FALSE) {
-  // break up IP for ip address
+  // have we checked user IP already this session?
+  if (!empty($_SESSION[IP_CHECKED])) {
+    return $_SESSION[IP_UID_MATCH];
+  }
+
+   // break up IP for ip address
   $addr = explode(".", check_plain($ip));
   $matches = FALSE;
 
   // Find user ip matches on the first part of the user's IP ANYWHERE except the end.
-  // Not desparately efficient but works consistently with comma separated IP ranges and spaces,
+  // Not desperately efficient but works consistently with comma separated IP ranges and spaces,
   // and these checks are only done once per session anyway.
   $partial_matches = db_query("SELECT uid, ip_match FROM {ip_login_user} WHERE ip_match LIKE ('%s')", '%' . $addr[0] . '.%');
   $uid_matched = 0;
@@ -304,10 +297,10 @@ function ip_login_login($uid) {
     if (!isset($_GET['ip_login_override_pages'])) {
       $pages = variable_get('ip_login_active_pages', '');
       if ($pages) {
-        $page_match = false;
+        $page_match = FALSE;
         // first char, if variable set, is 'check_mode' - remainder is paths to match or PHP
         $check_mode = substr($pages, 0, 1);
-        $pages = substr($pages,1);
+        $pages = substr($pages, 1);
         if ($check_mode < 2) {
           $path = drupal_get_path_alias($_GET['q']);
           // Compare with the internal and path alias (if any).
@@ -329,66 +322,66 @@ function ip_login_login($uid) {
       }
     }
 
-    if ($account = user_load(array('uid' => $uid, 'status' => 1))) { // if loaded active user
-      // login by assigning account to global $user object
-      global $user;
-      $user = $account;
+    // get account, bail if no loaded active user
+    $account = user_load(array('uid' => $uid, 'status' => 1));
+    if (!$account) return;
 
+    // login by assigning account to global $user object
+    global $user;
+    $user = $account;
+    if (!variable_get('ip_login_suppress_messages', 0)) {
       // notify user - if messages not suppressed
-      if (!variable_get('ip_login_suppress_messages', 0)) {
+      $message = t(
+        'Welcome %name. You have been automatically logged into %sitename.',
+        array(
+          '%name' => $user->name,
+          '%sitename' => variable_get('site_name', 'this website'),
+        ));
+      drupal_set_message($message);
+
+      // add handy message for those who can log out and then back in as another user
+      if (_ip_login_can_use_alternate_account($user)) {
         $message = t(
-          'Welcome %name. You have been automatically logged into %sitename.',
-          array(
-            '%name' => $user->name,
-            '%sitename' => variable_get('site_name', 'this website'),
-          ));
+          'You may also <a href="@other_user_link">log in as another user</a> if required.',
+          array('@other_user_link' => url('logout'))
+        );
         drupal_set_message($message);
-
-        // add handy message for those who can log out and then back in as another user
-        if (_ip_login_can_use_alternate_account($user)) {
-          $message = t(
-            'You may also <a href="@other_user_link">log in as another user</a> if required.',
-            array('@other_user_link' => url('logout'))
-          );
-          drupal_set_message($message);
-        }
       }
-      $_SESSION[LOGIN_BY_IP_COMPLETE] = TRUE;
-      $_SESSION[LOGIN_AS_DIFFERENT_USER] = FALSE;
-      // following borrowed from user_authenticate_finalize(), but with slightly different message
-      watchdog('user', 'Session opened for %name by IP Login.', array('%name' => $user->name));
+    }
 
-      // This is also used to invalidate one-time login links.
-      $user->login = time();
-      db_query("UPDATE {users} SET login = %d WHERE uid = %d", $user->login, $user->uid);
+    $_SESSION[LOGIN_BY_IP_COMPLETE] = TRUE;
+    // following borrowed from user_authenticate_finalize(), but with slightly different message
+    watchdog('user', 'Session opened for %name by IP Login.', array('%name' => $user->name));
 
-      // Regenerate the session ID to prevent against session fixation attacks.
-      $edit = NULL;
-      sess_regenerate();
-      user_module_invoke('login', $edit, $user);
+    // This is also used to invalidate one-time login links.
+    $user->login = time();
+    db_query("UPDATE {users} SET login = %d WHERE uid = %d", $user->login, $user->uid);
 
-      // following borrowed from ipAuthenticator's login and avoids caching issues
-      if (variable_get('cache', CACHE_DISABLED) != CACHE_DISABLED && !isset($_GET['ip_login_no_cache'])) {
-        // make a url to reload page, remove newlines from the URL to avoid header injection attacks.
-        // use admin settings for destination if set.
-        $url = variable_get('ip_login_destination', '');
-        if (strlen($url) == 0) $url = str_replace(array("\n", "\r"), '', $_GET["q"]);
-        if ($url == 'logout') $url = '<front>';
-        $url = url($url, array('query' => 'ip_login_no_cache='.md5(time()), 'absolute' => TRUE));
-        // Before the redirect, allow modules to react to the end of the page request.
-        module_invoke_all('exit', $url);
+    // Regenerate the session ID to prevent against session fixation attacks.
+    $edit = NULL;
+    sess_regenerate();
+    user_module_invoke('login', $edit, $user);
 
-        // Even though session_write_close() is registered as a shutdown function, we
-        // need all session data written to the database before redirecting.
-        session_write_close();
+    // following borrowed from ipAuthenticator's login and avoids caching issues
+    if (variable_get('cache', CACHE_DISABLED) != CACHE_DISABLED && !isset($_GET['ip_login_no_cache'])) {
+      // make a url to reload page, remove newlines from the URL to avoid header injection attacks.
+      // use admin settings for destination if set.
+      $url = variable_get('ip_login_destination', '');
+      if (strlen($url) == 0) $url = str_replace(array("\n", "\r"), '', $_GET["q"]);
+      if ($url == 'logout') $url = '<front>';
+      $url = url($url, array('query' => 'ip_login_no_cache='. md5(time()), 'absolute' => TRUE));
+      // Before the redirect, allow modules to react to the end of the page request.
+      module_invoke_all('exit', $url);
 
-        header('Location: '. $url, TRUE, 302);
-        exit();
-      }
+      // Even though session_write_close() is registered as a shutdown function, we
+      // need all session data written to the database before redirecting.
+      session_write_close();
+
+      header('Location: ' . $url, TRUE, 302);
+      exit();
     }
   }
 }
-
 
 /**
  * Logs the current user out.
@@ -396,28 +389,39 @@ function ip_login_login($uid) {
  * Called from hook_user on logout, most of the code taken from user_logout()
  * and _drupal_bootstrap().
  */
-function ip_login_as_different_user() {
+function ip_login_user_logout() {
+  // prevent recursive call via user_module_invoke()
+  if (!ip_login_is_possible()) {
+    return;
+  }
+  else {
+    $_SESSION[IP_UID_MATCH] = 0;
+  }
+
   global $user;
   watchdog('user', 'Session closed for %name.', array('%name' => $user->name));
 
   // store whether this user can log back in automatically
   $can_login_as_another_user = _ip_login_can_use_alternate_account($user);
 
-  // Destroy the current session, if we have one; wipe the IP Login UID to ensure no loops on call to hook_user(logout)
-  if (session_name() <> '') session_destroy();
-  $_SESSION[IP_UID_MATCH] = 0;
+  // Destroy the current session, if we have one; wipe the IP Login UID to ensure no loops on call to hook_user(logout).
+  // from php.net: "session_destroy() destroys all of the data associated with the current session. It does not unset
+  // any of the global variables associated with the session, or unset the session cookie.
+  if (session_name() <> '') {
+    session_destroy(); //TODO fix/remove this line as it adds warnings to watchdog: http://drupal.org/node/1219692
+  }
 
   // Call other module's hook_user logout functions
   $null = NULL; //Only variables can be passed by reference workaround.
   user_module_invoke('logout', $null, $user);
 
-  // Load the anonymous user
+  // Load the anonymous user, include some critical stuff
   $user = drupal_anonymous_user();
-
   require_once variable_get('session_inc', './includes/session.inc');
   session_set_save_handler('sess_open', 'sess_close', 'sess_read', 'sess_write', 'sess_destroy_sid', 'sess_gc');
   session_start();
 
+  // sets indicator to behaviour in hook_boot().
   $_SESSION[LOGIN_AS_DIFFERENT_USER] = $can_login_as_another_user;
   $_SESSION[LOGIN_BY_IP_COMPLETE] = FALSE;
 
@@ -429,9 +433,8 @@ function ip_login_as_different_user() {
   drupal_goto(variable_get('ip_login_destination', 'user'));
 }
 
-
 /**
- * Compares a single IP quadrant to a matching quadrant
+ * Compares a single IP quadrant to a matching quadrant.
  *
  * The matching quad can contain wildcards (*), ranges (10-12) or exact numbers
  * @param $find_value
@@ -472,9 +475,9 @@ function _ip_login_can_use_alternate_account($user) {
   //if (ip_address() == '127.0.0.1') return TRUE;
 
   // If the user doesn't have a matching IP, then we let them log in normally
-  if (!ip_login_check(ip_address()))
+  if (!ip_login_check(ip_address())) {
     return true;
-
+  }
   // all others check correct permission
   return user_access('can log in as another user', $user);
 }
@@ -489,13 +492,12 @@ function _ip_login_can_use_alternate_account($user) {
  */
 function _ip_login_get_user_range($uid) {
   if (isset($uid) && is_numeric($uid)) {
-    if($result = db_fetch_object(db_query("SELECT * FROM {ip_login_user} WHERE uid = %d", $uid))) {
+    if ($result = db_fetch_object(db_query("SELECT * FROM {ip_login_user} WHERE uid = %d", $uid))) {
       return $result->ip_match;
     }
   }
   return NULL;
 }
-
 
 /**
  * Sets the IP range match string for a user.
@@ -510,7 +512,7 @@ function _ip_login_get_user_range($uid) {
  */
 function _ip_login_set_user_range($uid, $ip_range = NULL) {
   if (isset($uid) && is_numeric($uid)) {
-    if (is_null($ip_range)) {
+    if (is_null($ip_range) || empty($ip_range)) {
       // null ip range = delete row
       return db_query("DELETE FROM {ip_login_user} WHERE uid = %d", $uid);
     }
