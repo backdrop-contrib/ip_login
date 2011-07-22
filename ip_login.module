@@ -58,6 +58,7 @@ function ip_login_help($path, $arg) {
         array('@permissions-link' => '/admin/user/permissions#module-ip_login'));
       $help .=  '</p>';
       $help .= ip_login_help_ranges();
+      $help .= '<p>HINT: You can find your computer\'s external IP address at <a href="http://www.whatsmyip.org/">www.whatsmyip.org</a>.</p>';
   }
   return $help;
 }
@@ -369,7 +370,7 @@ function ip_login_login($uid) {
       $url = variable_get('ip_login_destination', '');
       if (strlen($url) == 0) $url = str_replace(array("\n", "\r"), '', $_GET["q"]);
       if ($url == 'logout') $url = '<front>';
-      $url = url($url, array('query' => 'ip_login_no_cache='. md5(time()), 'absolute' => TRUE));
+      $url = url($url, array('query' => 'ip_login_no_cache=' . md5(time()), 'absolute' => TRUE));
       // Before the redirect, allow modules to react to the end of the page request.
       module_invoke_all('exit', $url);
 
@@ -476,7 +477,7 @@ function _ip_login_can_use_alternate_account($user) {
 
   // If the user doesn't have a matching IP, then we let them log in normally
   if (!ip_login_check(ip_address())) {
-    return true;
+    return TRUE;
   }
   // all others check correct permission
   return user_access('can log in as another user', $user);

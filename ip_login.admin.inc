@@ -150,9 +150,9 @@ function _ip_login_users_display_table() {
   }
   $header = array('Username', 'IP range', 'Operations');
   if (isset($rows[0])) {
-    return theme_table($header, $rows);
+    return theme_table($header, $rows) . t('<a href="/admin/user/user?destination=admin/settings/ip_login">Edit a user account</a> to add more IP addresses.');
   }
   else {
-   return t('There are presently no users with IP login ranges set. Edit a user account to add one.');
+    return t('There are presently no users with IP login ranges set.') . ' ' . t('<a href="/admin/user/user?destination=admin/settings/ip_login">Edit a user account</a> to add IP addresses.');
   }
 }
