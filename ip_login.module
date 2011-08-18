@@ -117,9 +117,9 @@ function ip_login_user($op, &$edit, &$account, $category = NULL) {
     if ($category == 'account' && isset($edit['ip_login_match'])) {
       //TODO: replace with regexp ideally
       // validate: replace all non-numeric but legal IP range chars with '|'
-      $ip_login_addresses = strtr($edit['ip_login_match'], ' ,.-', '||||');
+      $ip_login_addresses = strtr($edit['ip_login_match'], ' ,.-*', '|||||');
       foreach (explode('|', $ip_login_addresses) as $quad) {
-        if (strlen($quad) && !is_numeric($quad)) {
+        if (!empty($quad) && !is_numeric($quad)) {
           // bad entry, warn & bail
           form_set_error(
             'ip_login_match',
