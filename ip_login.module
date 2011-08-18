@@ -108,7 +108,8 @@ function ip_login_user($op, &$edit, &$account, $category = NULL) {
         '#type' => 'textfield',
         '#title' => t('IP address matches'),
         '#description' => t('IP matches based in format listed above. Leave blank to disable automatic login by IP for this user.'),
-        '#default_value' => _ip_login_get_user_range($account->uid)
+        '#default_value' => _ip_login_get_user_range($account->uid),
+        '#maxlength' => 255
       );
       return $form;
     }
