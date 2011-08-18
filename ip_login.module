@@ -124,7 +124,7 @@ function ip_login_user($op, &$edit, &$account, $category = NULL) {
           // bad entry, warn & bail
           form_set_error(
             'ip_login_match',
-            t('Only numbers, spaces, commas, dots and hyphens allowed in IP ranges.'));
+            t('Only numbers, spaces, commas, dots, asterisks and hyphens are allowed in IP ranges.'));
           break;
         }
       }
