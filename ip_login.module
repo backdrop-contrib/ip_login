@@ -1,8 +1,10 @@
 <?php
 /**
- * Allow user login by IP Address
- * by David W Thomas
- * updated by Jim Kirkpatrick
+ * Allow user login by IP addresses, ranges or wildcards.
+ * Originally by David W Thomas
+ * Major enhancements and 2.x branch by Jim Kirkpatrick
+ * Other big contributions from:
+ *   johnv: Code tidy/refactor & D7 version - http://drupal.org/node/1151458
  */
 
 /*
@@ -166,15 +168,6 @@ function ip_login_menu() {
 }
 
 /**
- * Returns TRUE if login by IP can happen
- *
- * Callback function for hook_menu (menu access)
- */
-function ip_login_is_possible() {
-  return $_SESSION[IP_UID_MATCH] > 0;
-}
-
-/**
  * Checks the request IP and logs user in there's a match by calling
  * ip_login_check then ip_login_attempt_login
  *
@@ -235,8 +228,19 @@ function ip_login_form_alter(&$form, &$form_state, $form_id) {
 }
 
 /**
+ * Callback function for hook_menu (menu access)
+ *
+ * @return boolean
+ *    TRUE if login by IP can happen because a user match has happened
+ */
+function ip_login_is_possible() {
+  return $_SESSION[IP_UID_MATCH] > 0;
+}
+
+/**
  * Compares the current request's IP address to the ip_login_user table
  * and then does a proper match for each match on exact, ranges and wildcards
+ * 
  * @param $ip
  *    An ip address string, usually from the current user's request
  * @return $uid_matched
@@ -284,45 +288,57 @@ function ip_login_check($ip, $diagnostics = FALSE) {
 }
 
 /**
+ * Checks path of current page matches any set as options on the admin page to
+ * see if IP login should occur. Adapted from core Block module's block_list().
+ *
+ * @return $uid_matched
+ *    The uid of the matching user account
+ */
+function ip_login_check_path() {
+  if (!isset($_GET['ip_login_override_pages'])) {
+    $pages = variable_get('ip_login_active_pages', '');
+    if ($pages) {
+      $page_match = FALSE;
+      // first char, if variable set, is 'check_mode' - remainder is paths to match or PHP
+      $check_mode = substr($pages, 0, 1);
+      $pages = substr($pages, 1);
+      if ($check_mode < 2) {
+        $path = drupal_get_path_alias($_GET['q']);
+        // Compare with the internal and path alias (if any).
+        $page_match = drupal_match_path($path, $pages);
+        if ($path != $_GET['q']) {
+          $page_match = $page_match || drupal_match_path($_GET['q'], $pages);
+        }
+        // When $check_mode has a value of 0, the IP check happens on
+        // all pages except those listed in $pages. When set to 1, IPs
+        // are checked only on those pages listed in $pages.
+        $page_match = !($check_mode xor $page_match);
+      }
+      else {
+        // evaluate PHP
+        $page_match = drupal_eval($pages);
+      }
+      // if we don't have a path/PHP match, don't log in
+      if (!$page_match) return FALSE;
+    }
+  }
+  // all is well, continue with login.
+  return TRUE;
+}
+
+/**
  * Logs user with $uid into the site, remembering any IP Login specifics necessary
  *
- * @param $ip
- *    An ip address string
+ * @param $uid
+ *    An UID for the account to be logged in
  */
 function ip_login_login($uid) {
   if ($uid) { // if a uid is passed in
     // get user module and include some handy functions
     drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
 
-    // Only do login on certain pages - if such pages are entered in admin page
-    // adapted from core Block module -> block_list($region)
-    if (!isset($_GET['ip_login_override_pages'])) {
-      $pages = variable_get('ip_login_active_pages', '');
-      if ($pages) {
-        $page_match = FALSE;
-        // first char, if variable set, is 'check_mode' - remainder is paths to match or PHP
-        $check_mode = substr($pages, 0, 1);
-        $pages = substr($pages, 1);
-        if ($check_mode < 2) {
-          $path = drupal_get_path_alias($_GET['q']);
-          // Compare with the internal and path alias (if any).
-          $page_match = drupal_match_path($path, $pages);
-          if ($path != $_GET['q']) {
-            $page_match = $page_match || drupal_match_path($_GET['q'], $pages);
-          }
-          // When $check_mode has a value of 0, the IP checkl happens on
-          // all pages except those listed in $pages. When set to 1, IPs
-          // are checked only on those pages listed in $pages.
-          $page_match = !($check_mode xor $page_match);
-        }
-        else {
-          // evaluate PHP
-          $page_match = drupal_eval($pages);
-        }
-        // if we don't have a path/PHP match, don't log in
-        if (!$page_match) return;
-      }
-    }
+    // check this page's path is ok to login automatically from
+    if (ip_login_check_path() === FALSE) return;
 
     // get account, bail if no loaded active user
     $account = user_load(array('uid' => $uid, 'status' => 1));
