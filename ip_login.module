@@ -31,9 +31,13 @@ function ip_login_boot() {
   // skip rest of this if the admin has disabled IP login
   if (!variable_get('ip_login_enabled', 1)) return;
 
+  // Avoid settings cookies if not on an IP Login-enabled page to improve
+  // external caching support - http://drupal.org/node/1263234 thanks Vacilando
+  if (ip_login_check_path() === FALSE) return;
+
+  // User not logged in, path good, IP login enabled...
   // get sanitised session variables
   $_SESSION[LOGIN_AS_DIFFERENT_USER] = (isset($_SESSION[LOGIN_AS_DIFFERENT_USER]) ? $_SESSION[LOGIN_AS_DIFFERENT_USER] : FALSE);
-
   $_SESSION[LOGIN_BY_IP_COMPLETE] = (isset($_SESSION[LOGIN_BY_IP_COMPLETE]) ? $_SESSION[LOGIN_BY_IP_COMPLETE] : FALSE);
 
   // check the user IP
@@ -303,12 +307,12 @@ function ip_login_check_path() {
       $check_mode = substr($pages, 0, 1);
       $pages = substr($pages, 1);
       if ($check_mode < 2) {
-        $path = drupal_get_path_alias($_GET['q']);
+        $path = (isset($_GET['q']) ? $_GET['q'] : ''); // no longer drupal_get_path_alias and no DB check!
         // Compare with the internal and path alias (if any).
-        $page_match = drupal_match_path($path, $pages);
-        if ($path != $_GET['q']) {
-          $page_match = $page_match || drupal_match_path($_GET['q'], $pages);
-        }
+        $page_match = ip_login_match_path($path, $pages);
+        /*if ($path != $_GET['q']) {
+          $page_match = $page_match || ip_login_match_path($_GET['q'], $pages);
+        }*/
         // When $check_mode has a value of 0, the IP check happens on
         // all pages except those listed in $pages. When set to 1, IPs
         // are checked only on those pages listed in $pages.
@@ -324,6 +328,21 @@ function ip_login_check_path() {
   }
   // all is well, continue with login.
   return TRUE;
+}
+
+/**
+ * Check if a path matches any pattern in a set of patterns. This is a clone of
+ * drupal_match_path() found in path.inc because the bootstrap hasn't occurred,
+ * so path.inc isn't available.
+ * 
+ * See: http://api.drupal.org/api/drupal/includes--path.inc/function/drupal_match_path/6
+ */
+function ip_login_match_path($path, $patterns) {
+  static $regexps;
+  if (!isset($regexps[$patterns])) {
+    $regexps[$patterns] = '/^(' . preg_replace(array('/(\r\n?|\n)/', '/\\\\\*/', '/(^|\|)\\\\<front\\\\>($|\|)/'), array('|', '.*', '\1' . preg_quote(variable_get('site_frontpage', 'node'), '/') . '\2'), preg_quote($patterns, '/')) . ')$/';
+  }
+  return preg_match($regexps[$patterns], $path);
 }
 
 /**
