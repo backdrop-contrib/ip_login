@@ -244,7 +244,7 @@ function ip_login_is_possible() {
 /**
  * Compares the current request's IP address to the ip_login_user table
  * and then does a proper match for each match on exact, ranges and wildcards
- * 
+ *
  * @param $ip
  *    An ip address string, usually from the current user's request
  * @return $uid_matched
@@ -307,12 +307,11 @@ function ip_login_check_path() {
       $check_mode = substr($pages, 0, 1);
       $pages = substr($pages, 1);
       if ($check_mode < 2) {
-        $path = (isset($_GET['q']) ? $_GET['q'] : ''); // no longer drupal_get_path_alias and no DB check!
-        // Compare with the internal and path alias (if any).
+        // Compare with the path with allowed pages.
+        // Since this happens in hook_boot, we cannot call drupal_get_path_alias
+        // so call our own path matcher code and avoid a DB/alias check
+        $path = (isset($_GET['q']) ? $_GET['q'] : '');
         $page_match = ip_login_match_path($path, $pages);
-        /*if ($path != $_GET['q']) {
-          $page_match = $page_match || ip_login_match_path($_GET['q'], $pages);
-        }*/
         // When $check_mode has a value of 0, the IP check happens on
         // all pages except those listed in $pages. When set to 1, IPs
         // are checked only on those pages listed in $pages.
@@ -334,7 +333,7 @@ function ip_login_check_path() {
  * Check if a path matches any pattern in a set of patterns. This is a clone of
  * drupal_match_path() found in path.inc because the bootstrap hasn't occurred,
  * so path.inc isn't available.
- * 
+ *
  * See: http://api.drupal.org/api/drupal/includes--path.inc/function/drupal_match_path/6
  */
 function ip_login_match_path($path, $patterns) {
