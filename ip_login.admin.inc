@@ -82,7 +82,7 @@ function ip_login_admin_settings() {
   $form['active_pages'] = array(
     '#type' => 'fieldset',
     '#title' => t('Path specific IP logins'),
-    '#description' => t('<p>You can choose specific paths that IP Login will or will not try to log in a user. <strong>Please note:</strong></p><ul><li>No alias or system path lookup is performed, so you MUST have both paths listed if you want IP logins to happen on both paths  - e.g. alias "about/this-site" and system path "node/123" would both need to be added.</li><li>This will not affect users who have <code>can log in as another user</code> permission who have already logged out and have a cookie.</li></ul>'),
+    '#description' => t('<p>You can choose specific paths that IP Login will or will not try to log in a user. <strong>Please note:</strong></p><ul><li>No alias or system path lookup is performed, so you MUST have both paths listed if you want IP logins to happen on both paths  - e.g. alias "about/this-site" and system path "node/123" would both need to be added.</li><li>This will not affect users with <code>can log in as another user</code> permission who have already logged out and have a cookie.</li></ul>'),
     '#collapsible' => TRUE,
   );
   $access = user_access('use PHP for block visibility');
@@ -100,8 +100,8 @@ function ip_login_admin_settings() {
     $form['active_pages']['check_pages'] = array('#type' => 'value', '#value' => $pages);
   }
   else {
-    $options = array(t('Login by IP on every page except the listed pages.'), t('Login by IP only on the listed pages.'));
-    $description = t("Enter one page per line as Drupal paths. The '*' character is a wildcard. Example paths are %blog for the blog page and %blog-wildcard for every personal blog. %front is the front page. Note you must also enter system paths (e.g. 'node/123') for aliases if you want IP logins to happen there too", array('%blog' => 'blog', '%blog-wildcard' => 'blog/*', '%front' => '<front>'));
+    $options = array(t('Login by IP on every page except the listed <strong>paths</strong>.'), t('Login by IP only on the listed <strong>paths</strong>.'));
+    $description = t("Enter one page per line as Drupal paths. The '*' character is a wildcard. Example paths are %blog for the blog page and %blog-wildcard for every personal blog. %front is the front page. Note you must also enter system paths (e.g. 'node/123') for aliases if you want IP logins to happen there too.", array('%blog' => 'blog', '%blog-wildcard' => 'blog/*', '%front' => '<front>'));
 
     if ($access) {
       $options[] = t('login by IP if the following PHP code returns <code>TRUE</code> (PHP-mode, experts only).');
@@ -109,7 +109,7 @@ function ip_login_admin_settings() {
     }
     $form['active_pages']['check_mode'] = array(
       '#type' => 'radios',
-      '#title' => t('Login by IP on specific pages'),
+      '#title' => t('Login by IP on specific paths'),
       '#options' => $options,
       '#default_value' => $check_mode,
     );
