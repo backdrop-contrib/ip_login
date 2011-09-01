@@ -141,7 +141,8 @@ function _ip_login_users_display_table() {
      FROM users
      INNER JOIN ip_login_user ON ip_login_user.uid = users.uid
      ORDER BY ip_login_user.ip_match");
-  while ($row = db_fetch_object($result)) {
+
+  foreach ($result as $row) {
     $rows[] = array(
       $row->name,
       $row->ip_match,
@@ -150,9 +151,12 @@ function _ip_login_users_display_table() {
   }
   $header = array('Username', 'IP range', 'Operations');
   if (isset($rows[0])) {
-    return theme_table($header, $rows) . t('<a href="/admin/user/user?destination=admin/settings/ip_login">Edit a user account</a> to add more IP addresses.');
+    $table = theme('table', array('header' => $header, 'rows' => $rows));
+    $table.= t('<a href="/admin/people/people?destination=admin/settings/ip_login">Edit a user account</a> to add more IP addresses.');
+    return $table;
   }
   else {
-    return t('There are presently no users with IP login ranges set.') . ' ' . t('<a href="/admin/user/user?destination=admin/settings/ip_login">Edit a user account</a> to add IP addresses.');
+    return t('There are presently no users with IP login ranges set.') .
+           t('<a href="/admin/people/people?destination=admin/config/people/ip_login"> Edit a user account</a> to add IP addresses.');
   }
 }
