@@ -62,7 +62,6 @@ function ip_login_help($path, $arg) {
         array('@permissions-link' => '/admin/people/permissions#module-ip_login'));
       $help .=  '</p>';
       $help .= ip_login_help_ranges();
-      $help .= '<p>HINT: You can find your computer\'s external IP address at <a href="http://www.whatsmyip.org/">www.whatsmyip.org</a>.</p>';
     return $help;
   }
 }

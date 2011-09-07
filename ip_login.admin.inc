@@ -6,6 +6,13 @@
  */
 
 function ip_login_admin_settings() {
+  $form['ip_address'] = array(
+    '#prefix' => '<div class="messages status">',
+    '#description' => t('Users for which IP Login is enabled are listed below.'),
+    '#markup' => t('According to Drupal\'s <code>ip_address()</code> function <strong>your IP address is <code>@ip_address</code></strong>.', array('@ip_address' => ip_address())),
+    '#suffix' => ' ' . t('Tip: You can find your computer\'s external IP address at <a href="http://www.whatsmyip.org/">www.whatsmyip.org</a>.') . '</div>'
+  );
+
   $form['ip_login_users_container'] = array(
     '#type' => 'fieldset',
     '#title' => t('IP Login-enabled users'),
@@ -82,7 +89,7 @@ function ip_login_admin_settings() {
   $form['active_pages'] = array(
     '#type' => 'fieldset',
     '#title' => t('Path specific IP logins'),
-    '#description' => t('<p>You can choose specific paths that IP Login will or will not try to log in a user. <strong>Please note:</strong></p><ul><li>No alias or system path lookup is performed, so you MUST have both paths listed if you want IP logins to happen on both paths  - e.g. alias "about/this-site" and system path "node/123" would both need to be added.</li><li>This will not affect users with <code>can log in as another user</code> permission who have already logged out and have a cookie.</li></ul>'),
+    '#description' => t('<p>You can choose specific paths that IP Login will or will not try to log in a user. <strong>Please note:</strong></p><ul><li>No alias or system path lookup is performed, so you will need to have both paths listed if you want IP logins to happen on both paths  - e.g. alias "about/this-site" and system path "node/123" would both need to be added.</li><li>This will not affect users with <code>can log in as another user</code> permission who have already logged out and have a cookie.</li></ul>'),
     '#collapsible' => TRUE,
   );
   $access = user_access('use PHP for block visibility');
@@ -146,17 +153,30 @@ function _ip_login_users_display_table() {
     $rows[] = array(
       $row->name,
       $row->ip_match,
-      l(t('edit'), 'user/' . $row->uid . '/edit', array('fragment' => 'ip_login'))
+      l(
+        t('edit'),
+        'user/' . $row->uid . '/edit',
+        array(
+          'query' => array('destination' => 'admin/config/people/ip_login'),
+          'fragment' => 'ip_login'
+        )
+      )
     );
   }
   $header = array('Username', 'IP range', 'Operations');
   if (isset($rows[0])) {
     $table = theme('table', array('header' => $header, 'rows' => $rows));
-    $table.= t('<a href="/admin/people/people?destination=admin/settings/ip_login">Edit a user account</a> to add more IP addresses.');
+    $table.= l(
+      t('Edit a user account to add more IP addresses.'),
+      'admin/people/people'
+      );
     return $table;
   }
   else {
-    return t('There are presently no users with IP login ranges set.') .
-           t('<a href="/admin/people/people?destination=admin/config/people/ip_login"> Edit a user account</a> to add IP addresses.');
+    return t('There are presently no users with IP login ranges set.') . ' ' .
+      l(
+        t('Edit a user account to add some IP addresses.'),
+        'admin/people/people'
+      );
   }
 }
