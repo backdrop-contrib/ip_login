@@ -295,7 +295,13 @@ function ip_login_check($ip, $diagnostics = FALSE) {
   // Find user ip matches on the first part of the user's IP ANYWHERE except the end.
   // Not desperately efficient but works consistently with comma separated IP ranges and spaces,
   // and these checks are only done once per session anyway.
-  $partial_matches = db_query("SELECT uid, ip_match FROM {ip_login_user} WHERE ip_match LIKE (:addr)", array(':addr' => '%' . $addr[0] . '.%'));
+  $partial_matches = db_query(
+      "SELECT uid, ip_match
+       FROM {ip_login_user}
+       WHERE ip_match LIKE (:addr)
+       ORDER by LENGTH(ip_match) ASC",
+      array(':addr' => '%' . $addr[0] . '.%')
+    );
   foreach ($partial_matches as $row) {
     // multiple values are separated with commas so try each in turn
     $user_ip_ranges = explode(",", $row->ip_match);
