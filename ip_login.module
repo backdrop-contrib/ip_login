@@ -16,7 +16,6 @@ define('ATTEMPT_IP_LOGIN', 'user/login_by_ip'); // path for ip login
 define('IP_LOGOUT', 'user/logout'); // path for user logout (different between D6/D7)
 define('IP_CHECKED', 'ip_login_checked'); // TRUE when IP check has happened
 define('IP_UID_MATCH', 'ip_login_uid'); // TRUE when a user account matches the request IP
-define('LOGIN_BY_IP_COMPLETE', 'ip_login_by_ip_complete'); // TRUE when IP login process has completed
 define('LOGIN_AS_DIFFERENT_USER', 'ip_login_as_different_user'); // TRUE when user wants alternate account
 
 define('CACHE_DISABLED', 0);  // D7 TODO: this is removed from bootstrap.inc, and now in?? --> avoid double definition
@@ -41,9 +40,19 @@ function ip_login_boot() {
   // check the user IP
   $matched_uid = ip_login_check(ip_address());
   if ($matched_uid > 0) {
-    if (!empty($GLOBALS[LOGIN_AS_DIFFERENT_USER])) {
-      // not ip logged in, or indeed wanting to log in again as another account
+    $can_login_as_another_user = isset($_COOKIE[LOGIN_AS_DIFFERENT_USER]) ? $_COOKIE[LOGIN_AS_DIFFERENT_USER] : NULL;
+
+    // for clarity about every scenario, use extensive logic
+    if (is_null($can_login_as_another_user)) {
+      // first time login for user, so log in automatically.
       ip_login_login($matched_uid);
+    }
+    elseif ($can_login_as_another_user === FALSE) {
+      // user logged out, but is not allowed to use another user, so log in again.
+      ip_login_login($matched_uid);
+    }
+    else {
+      // user logged out, and is allow to login as another user, so wait for user action.
     }
   }
 }
@@ -113,7 +122,7 @@ function ip_login_menu() {
  */
 function ip_login_is_possible() {
   // Return TRUE if a matching uid is found.
-  return !empty($_SESSION[IP_UID_MATCH]) ;
+  return !empty($_SESSION[IP_UID_MATCH]);
 }
 
 /**
@@ -152,69 +161,103 @@ function ip_login_permission() {
  * Implementation of hook_form_alter().
  */
 function ip_login_form_alter(&$form, &$form_state, $form_id) {
+  // @todo should call hook_theme ideally
   switch ($form_id) {
-  case 'user_login':
-    $markup = '';
-    $link_text = t(variable_get('ip_login_link_login_page', 'Log in automatically'));
-    if (strlen($link_text)) { // hide if no link text
-      $link_help = t(variable_get('ip_login_link_login_page_help', "Your computer's IP address has been matched and validated."));
-      $markup .= '<br/>';
-      $markup .= '<ul class="item-list">';
-      $markup .= '<li><strong>' . l($link_text, ATTEMPT_IP_LOGIN, array('query' => array('ip_login_override_pages' => 'yes'))) . '</strong>';
-      if (strlen($link_help)) $markup .= '<br/><small>' . filter_xss_admin($link_help) . '</small>';
-      $markup .= '</li></ul>';
-      $form['ip_login'] = array(
-        '#type'    => 'radios', // NB: not: 'radio'
-        '#options' => array(), // dummy, just to get rid of log-message
-        '#title' => $markup,
-        '#value' => $markup,
-        '#weight' => variable_get('ip_login_link_login_page_weight', -10),
-      );
-    }
-    break;
-  case 'user_login_block':
-    $markup = '';
-    $link_text = t(variable_get('ip_login_link_login_block', 'Log in automatically'));
-    if (strlen($link_text)) { // hide if no link text
-      $markup .= '<ul class="item-list">';
-      $markup .= '<li><strong>' . l($link_text, ATTEMPT_IP_LOGIN, array('query' => array('ip_login_override_pages' => 'yes'))) . '</strong>';
-      $markup .= '</li></ul>';
-      $form['ip_login'] = array(
-        '#type'    => 'radios', // NB: not: 'radio'
-        '#options' => array(), // dummy, just to get rid of log-message
-        '#title' => $markup,
-        '#value' => $markup,
-        '#weight' => variable_get('ip_login_link_login_block_weight', -10),
-      );
-    }
-    break;
-  case 'user_profile_form':  // change user
-  case 'user_register_form': //create user
-    global $user;
-    if (user_access('administer ip login', $user)) {
-      $account = $form['#user'];
+    case 'user_login':
+      $matched_uid = ip_login_check(ip_address());
+      if ($matched_uid > 0) {
+        $link_text = t(variable_get('ip_login_link_login_page', 'Log in automatically'));
+        if (strlen($link_text)) { // hide if no link text
+          $link_help = t(variable_get('ip_login_link_login_page_help', "Your computer's IP address has been matched and validated."));
+          $markup = '<br/>';
+          $markup .= '<ul class="item-list">';
+          $markup .= '<li><strong>' . l($link_text, ATTEMPT_IP_LOGIN, array('query' => array('ip_login_override_pages' => 'yes'))) . '</strong>';
+          if (strlen($link_help)) $markup .= '<br/><small>' . filter_xss_admin($link_help) . '</small>';
+          $markup .= '</li></ul>';
+          $form['ip_login'] = array(
+            '#markup' => $markup,
+            '#weight' => variable_get('ip_login_link_login_page_weight', -10),
+          );
+        }
+      }
+      break;
+    case 'user_login_block':
+      $matched_uid = ip_login_check(ip_address());
+      if ($matched_uid > 0) {
+        $link_text = t(variable_get('ip_login_link_login_block', 'Log in automatically'));
+        if (strlen($link_text)) { // hide if no link text
+          $markup = '<ul class="item-list">';
+          $markup .= '<li><strong>' . l($link_text, ATTEMPT_IP_LOGIN, array('query' => array('ip_login_override_pages' => 'yes'))) . '</strong>';
+          $markup .= '</li></ul>';
+          $form['ip_login'] = array(
+            '#markup' => $markup,
+            '#weight' => variable_get('ip_login_link_login_page_weight', -10),
+          );
+        }
+      }
+      break;
+    case 'user_profile_form':  // change user
+    case 'user_register_form': //create user
+      global $user;
+      if (user_access('administer ip login', $user)) {
+        $account = $form['#user'];
 
-      // set the validation callback
-      $form['#validate'][] = '_ip_login_user_form_validate';
+        // set the validation callback
+        $form['#validate'][] = '_ip_login_user_form_validate';
 
-      // wrap in a fieldset
-      $form['ip_login_matches'] = array(
-        '#type' => 'fieldset',
-        '#title' => t('IP Login Settings'),
-        '#description' => ip_login_help_ranges(t('This user can be automatically logged in by IP address.')),
-        '#weight' => '-1',
-      );
-      $form['ip_login_matches']['ip_login_match'] = array(
-        '#type' => 'textfield',
-        '#title' => t('IP address matches'),
-        '#description' => t('IP matches based in format listed above. Leave blank to disable automatic login by IP for this user.'),
-        '#default_value' => _ip_login_get_user_range($account->uid),
-        '#default_value' => _ip_login_get_user_range($account->uid),
-        '#maxlength' => 255,
-      );
-    }
-    break;
+        // wrap in a fieldset
+        $form['ip_login_matches'] = array(
+          '#type' => 'fieldset',
+          '#title' => t('IP Login Settings'),
+          '#description' => ip_login_help_ranges(t('This user can be automatically logged in by IP address.')),
+          '#weight' => '-1',
+        );
+        $form['ip_login_matches']['ip_login_match'] = array(
+          '#type' => 'textfield',
+          '#title' => t('IP address matches'),
+          '#description' => t('IP matches based in format listed above. Leave blank to disable automatic login by IP for this user.'),
+          '#default_value' => _ip_login_get_user_range($account->uid),
+          '#default_value' => _ip_login_get_user_range($account->uid),
+          '#maxlength' => 255,
+        );
+      }
+      break;
   }
+}
+
+/**
+ * Implementation of hook_block_info
+ *
+ * Adds the simple 'Automatic login' link block
+ */
+function ip_login_block_info() {
+  $blocks = array();
+  $blocks['ip-login-link'] = array(
+    'info' => t('Log in by IP link'),
+    'cache' => DRUPAL_NO_CACHE,
+  );
+  return $blocks;
+}
+
+/**
+ * Implementation of hook_block_view
+ *
+ * Makes simple a 'Automatic login' link available for those not wanting to use the
+ * overridden 'User Login' block.
+ */
+function ip_login_block_view($delta = '') {
+  // only show for anonymous users who can log in
+  global $user;
+  if ($user->uid > 0 || !ip_login_is_possible()) return;
+  if ($delta <> 'ip-login-link') return;
+  // build simple block
+  // @todo should be a hook_theme call
+  $link_text = t(variable_get('ip_login_link_login_block', 'Log in automatically'));
+  $markup = '<div class="ip-login-available"><span class="ip-login-link">';
+  $markup .= l($link_text, ATTEMPT_IP_LOGIN, array('query' => array('ip_login_override_pages' => 'yes')));
+  $markup .= '</span></div>';
+  $block = array('subject' => t('Automatic login'), 'content' => $markup);
+  return $block;
 }
 
 /**
@@ -382,12 +425,13 @@ function ip_login_match_path($path, $patterns) {
 }
 
 /**
- * Logs user with $uid into the site, remembering any IP Login specifics necessary
+ * Performs a login for user with $uid and stores IP Login variables for later
  *
  * @param $uid
- *    An UID for the account to be logged in
+ *    The UID of the account to be logged in
  */
 function ip_login_login($uid) {
+  global $user;
   if ($uid) { // if a uid is passed in
     // check this page's path is ok to login automatically from
     if (ip_login_check_path() === FALSE) return;
@@ -400,7 +444,6 @@ function ip_login_login($uid) {
     if (!$account || $account->status <> 1 ) return;
 
     // login by assigning account to global $user object
-    global $user;
     $user = $account;
     if (!variable_get('ip_login_suppress_messages', 0)) {
       // notify user - if messages not suppressed
@@ -413,7 +456,7 @@ function ip_login_login($uid) {
       drupal_set_message($message);
 
       // add handy message for those who can log out and then back in as another user
-      if (_ip_login_can_use_alternate_account($user)) {
+      if (_ip_login_can_login_as_another_user($user)) {
         $message = t(
           'You may also <a href="@other_user_link">log in as another user</a> if required.',
           array('@other_user_link' => url(IP_LOGOUT))
@@ -422,7 +465,6 @@ function ip_login_login($uid) {
       }
     }
 
-    $GLOBALS[LOGIN_BY_IP_COMPLETE] = TRUE;
     // following borrowed from user_authenticate_finalize(), but with slightly different message
     watchdog('user', 'Session opened for %name by IP Login.', array('%name' => $user->name));
 
@@ -485,15 +527,16 @@ function ip_login_user_logout() {
   global $user;
 
   // store whether this user can log back in automatically
-  $can_login_as_another_user = _ip_login_can_use_alternate_account($user);
+  $can_login_as_another_user = _ip_login_can_login_as_another_user($user);
+
+  // sets indicator to behaviour in hook_boot().
+  $_SESSION[LOGIN_AS_DIFFERENT_USER] = $can_login_as_another_user;
+  $_COOKIE[LOGIN_AS_DIFFERENT_USER] = $can_login_as_another_user;
+  setcookie(LOGIN_AS_DIFFERENT_USER, $_COOKIE[LOGIN_AS_DIFFERENT_USER], time() +3600, '/'); // Cookie valid for 1 hr.
 
   if (!$can_login_as_another_user) {
     // @todo: it is possible that some other hook_user_logout() has been called already.
     //        does this generate an undetermined state?
-
-    // sets indicator to behaviour in hook_boot().
-    $_SESSION[LOGIN_AS_DIFFERENT_USER] = $can_login_as_another_user;
-    $_SESSION[LOGIN_BY_IP_COMPLETE] = FALSE;
 
     $message = t('This account does not have permission to log out once logged in automatically. You have been logged back in.');
     drupal_set_message($message, 'warning');
@@ -534,7 +577,7 @@ function ip_login_match_quad($find_value, $in_range) {
 /*
  * Returns TRUE if a user has permission to log out and back in as another user
  */
-function _ip_login_can_use_alternate_account($user) {
+function _ip_login_can_login_as_another_user($user) {
   // only allow users with correct permission to log in as another user,
   // this presently enforced by an immediate re-login by IP
   if ($user->uid == 1) return TRUE; // super user can

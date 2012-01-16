@@ -72,8 +72,8 @@ function ip_login_admin_settings() {
   );
   $form['login_block']['ip_login_link_login_block'] = array(
     '#type' => 'textfield',
-    '#title' => t('Login block link text'),
-    '#description' => t('Text for link on login page. Use blank to remove link, defaults to "Log in automatically"'),
+    '#title' => t('Login blocks link text'),
+    '#description' => t('Text for link on "User login" and "Log in by IP link" blocks. Use blank to remove link, defaults to "Log in automatically"'),
     '#default_value' => t(variable_get('ip_login_link_login_block', 'Log in automatically')),
     '#required' => FALSE,
   );
