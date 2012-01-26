@@ -1,36 +1,109 @@
-IP Login - Login to Drupal automatically via your IP address
-By David Thomas - davidwhthomas@gmail.com
-and Jim Kirkpatrick - bad.octopus@gmail.com
-April 2011
-
-*** ABOUT ***
-This module allows users to login first automatically via their IP address, wildcard or range, instead of using a username / password.
-The module uses the core 'Profile' module to lookup a user's IP address - FOR NOW!
-
-*** NOTE April 2011 ***
-This version is an early preview of the 2.x-DEV branch and will soon loose the reliance on the core Profile module and gain
-better integration with other modules and Drupal 7.
-
-All information below is out of date but still relevant.
+IP Login
+========
+  Log in automatically via their IP (v4) address ranges or wildcards instead of
+  having to enter a username and password - plus many other features.
 
 
+Authors & main contributors
+===========================
+  Originally By David Thomas - davidwhthomas@gmail.com
+  Now maintained by Jim Kirkpatrick - jim@i-jk.co.uk
+  And with help from JohnV and others - Thanks!
 
-*** HOW IT WORKS ***
-When a user visits any Drupal page, IP Login checks that they're not logged in and that IP login hasn't run yet for this session.
-If they are a new anon user, the module checks if a record exists for the user's IP address by looking up the profile_values field for the IP Address in $_SERVER['REMOTE_HOST']
-If a matching IP address is found in profile_values, it logs them in as that user.
-If not, normal username / password authentication is still always available as a second step.
 
-*** HOW TO INSTALL ****
+Features
+========
+  * IP address matching works on:
+    * Normal single IPs, comma separated: 123.4.5.6 or 123.4.5.6, 234.5.6.7
+    * IP ranges: 123.4.5.6-10 or 123.4-111.5.6
+    * Wildcards: 123.4.5.* or 123.*.*.*
+    * Any combination: 127.0.0.1, 123.4.5-66.*, 234.4-5.6-77.*
+    * Coming soon: IPv6 and Subnet matching via CIDR notation.
+  * Integration with User Login page & block, with customisable text and labels
+  * 'Log in by IP' block with simple auto-login link for those who don't want
+    to use the modified User Login block.
+  * Users with permission can log out and and back into another account.
+  * Can be set to auto-login (or not) only on certain pages, or when custom PHP
+    returns TRUE.
+  * Optional destination address can be set when logged in by IP.
+  * Lists IP-enabled users on the admin page at 'Site configuration' -> 'IP
+    Login'.
+  * Will work with external caches like Varnish when IP Login is set to
+    auto-login only on specific paths.
 
-1. Create a user profile textfield to store the user's IP address. e.g: profile_ip. I recommend making it a private field, only available to admins.
-2. Copy the module folder 'ip_login' to your module folder (e.g sites/all/modules/ )
-3. Enable the module from Drupal admin -> modules
-4. Go to the site config settings at admin/settings/iplogin and select the profile field that contains a user's IP address.
-5. Done.
 
-*** HOW TO TEST ***
+How it works
+============
+  When a user visits any Drupal page (or admin-chosen page), IP Login will:
+  
+  1. Check if the user is not logged in and that IP login hasn't run yet for
+    this session.
+  2. If so, it compare the IP address (using Drupal's ip_address() function) to
+    IP ranges stored in its own private table in the database.
+  3. If a match is found, IP Login logs the user in programmatically as the
+    account matching the IP address.
+  4. If a matching IP is not found, the user can log in via normal Drupal
+    accounts if they choose to.
+  5. If the user has permission to log out, they can and will be given the
+    option to login back in normally as another user. Users without this
+    permission are auto-logged back in IP Login. This way you can force an IP
+    address to stay associated and logged into an account.
 
-You can test it by entering your IP address in your user profile. If you need to find your external IP address, try http://whatismyip.com
-If it's working, you should be able to close the browser, open it, go to your site and see the 'Welcome %name, you're now logged into %sitename' message after IP Login has logged you in.
 
+Installation
+============
+
+  From scratch
+  ------------
+  1. Enable the module from Drupal admin -> modules
+  2. Edit user accounts you want to add IP Login to.
+  3. Optional: Go to the IP Login settings page to tweak and administer.
+  4. Optional: Add the simple 'Log in by IP' link block to a region.
+
+  Upgrading from 6.x-1.x branch
+  -----------------------------
+  NOTE: The 6.x-1.x branch is now deprecated.
+  
+  1. REMOVE the old IP Login folder in sites/all/module or
+    sites/[yoursite]/modules
+  2. Upload/add the 2.x branch
+  3. Run update.php
+
+  When you upgrade to 7.x-2.x the IP field you added to users via core the
+  Profile module will be auto-imported into the new ip_login_users table.
+
+
+How to test
+===========
+  You can test it by entering your IP address in the IP login field when
+  editing your user profile, then:
+
+  1. If the site is running on your computer you can probably use the localhost
+    loopback IP address of 127.0.0.1 for testing, otherwise you will need to
+    find your external IP address. IP Login shows your IP address according to
+    Drupal on its admin page, but you could also use at http://whatismyip.com.
+  2. You can tell it's working when you click the logout button and are either
+    logged back in by IP Login or, if you have permission or are user 1, have
+    the 'Log in automatically' option in the login form.
+  3. IP Login displays a welcome message: "Welcome %name. You have been
+    automatically logged into %sitename".
+  4. You can also open the site in your browser when set to 'Private Browsing'
+    mode (also called InPrivate, Incognito etc.) and see the welcome message
+    indicating IP Login has logged you in.
+
+
+Notes & possible incompatibilities
+==================================
+* This module may be suitable for users with dynamic IP addresses, like those
+  assigned by DHCP or from an ISP's IP blocks etc. provided that:
+    a) your're ok that anyone using these IP ranges is allowed to log in with a
+    given account; and
+    b) the range of possible IPs for the user is known.
+  If not then IP Login will not be able to work effectively in your case.
+
+* IP Login used to be incompatible with the following modules. It had changed
+  slightly since these issues were reported so it might well work now. You
+  should note that any module that wipes and/or recreates the session will
+  possibly have compatibility issues with IP Login:
+  * Secure Pages Hijack Prevention
+  * Legal
