@@ -164,7 +164,7 @@ function ip_login_user_list() {
   $output .= t('According to Drupal\'s <code>ip_address()</code> function <strong>your IP address is <code>@ip_address</code></strong>. ', array('@ip_address' => ip_address()));
   $output .= t('Tip: You can find your computer\'s external IP address at <a href="http://www.whatsmyip.org/">www.whatsmyip.org</a>.') . '</div>';
   // add table of IP-enabled users
-  $output .= '<h3>' . t('IP Login-enabled users') . '</h3>';  
+  $output .= '<h3>' . t('IP Login-enabled users') . '</h3>';
   $output .= t(
     '<p>Users for which IP Login is enabled are listed below. Login behaviour is controlled <a href="!link">IP Login settings</a>.</p>',
     array('!link' => '/admin/config/people/ip_login')

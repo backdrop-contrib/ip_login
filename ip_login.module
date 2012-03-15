@@ -46,13 +46,21 @@ function ip_login_boot() {
     if (is_null($can_login_as_another_user)) {
       // first time login for user, so log in automatically.
       ip_login_login($matched_uid);
-    }
-    elseif ($can_login_as_another_user === FALSE) {
+      drupal_goto(ltrim($_SERVER['REQUEST_URI'], '/'));
+     }
+    elseif ($can_login_as_another_user == FALSE) {
       // user logged out, but is not allowed to use another user, so log in again.
       ip_login_login($matched_uid);
+      drupal_goto(ltrim($_SERVER['REQUEST_URI'], '/'));
+    }
+    elseif ($can_login_as_another_user == TRUE) {
+      // user logged out, and is allowed to login as another user,
+      // so do nothing, just stay on this page and wait for user action.
     }
     else {
-      // user logged out, and is allow to login as another user, so wait for user action.
+      // do automatic login.
+      ip_login_login($matched_uid);
+      drupal_goto(ltrim($_SERVER['REQUEST_URI'], '/'));
     }
   }
 }
@@ -539,9 +547,8 @@ function ip_login_user_logout() {
   $can_login_as_another_user = _ip_login_can_login_as_another_user($user);
 
   // sets indicator to behaviour in hook_boot().
-  $_SESSION[LOGIN_AS_DIFFERENT_USER] = $can_login_as_another_user;
-  $_COOKIE[LOGIN_AS_DIFFERENT_USER] = $can_login_as_another_user;
-  setcookie(LOGIN_AS_DIFFERENT_USER, $_COOKIE[LOGIN_AS_DIFFERENT_USER], time() +3600, '/'); // Cookie valid for 1 hr.
+  $expire = 0; // Cookie expires at the end of the session (when the browser closes).
+  setcookie(LOGIN_AS_DIFFERENT_USER, $can_login_as_another_user, $expire, '/');
 
   if (!$can_login_as_another_user) {
     // @todo: it is possible that some other hook_user_logout() has been called already
@@ -601,8 +608,8 @@ function _ip_login_can_login_as_another_user($user) {
   if (!ip_login_check(ip_address())) {
     return TRUE;
   }
-  // all others check correct permission
-  return user_access('can log in as another user', $user);
+  // all others check correct permission, making sure only TRUE, FALSE is returned
+  return user_access('can log in as another user', $user) ? TRUE : FALSE;
 }
 
 /**
