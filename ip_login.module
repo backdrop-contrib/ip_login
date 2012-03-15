@@ -12,12 +12,12 @@
  * @todo for security, IP addresses and ranges should really be checked for collisions between existing accounts users
  * @todo Check usage of $GLOBALS['conf']['cache'] in ip_login_attempt_login())
  */
+
 define('ATTEMPT_IP_LOGIN', 'user/login_by_ip'); // path for ip login
 define('IP_LOGOUT', 'user/logout'); // path for user logout (different between D6/D7)
 define('IP_CHECKED', 'ip_login_checked'); // TRUE when IP check has happened
 define('IP_UID_MATCH', 'ip_login_uid'); // TRUE when a user account matches the request IP
 define('LOGIN_AS_DIFFERENT_USER', 'ip_login_as_different_user'); // TRUE when user wants alternate account
-
 define('CACHE_DISABLED', 0);  // D7 TODO: this is removed from bootstrap.inc, and now in?? --> avoid double definition
 
 /**
@@ -133,9 +133,10 @@ function ip_login_menu() {
 }
 
 /**
- * Returns TRUE if login by IP can happen
- *
  * Callback function for hook_menu (menu access)
+ *
+ * @return boolean
+ *    TRUE if login by IP can happen because a user match has happened
  */
 function ip_login_is_possible() {
   // Return TRUE if a matching uid is found.
@@ -341,6 +342,7 @@ function ip_login_user_form_submit(&$edit, $account, $category) {
 /**
  * Compares the current request's IP address to the ip_login_user table
  * and then does a proper match for each match on exact, ranges and wildcards
+ *
  * @param $ip
  *    An ip address string, usually from the current user's request
  * @return $uid_matched
@@ -453,7 +455,6 @@ function ip_login_match_path($path, $patterns) {
  *    The UID of the account to be logged in
  */
 function ip_login_login($uid) {
-  global $user;
   if ($uid) { // if a uid is passed in
     // check this page's path is ok to login automatically from
     if (ip_login_check_path() === FALSE) return;
@@ -466,6 +467,7 @@ function ip_login_login($uid) {
     if (!$account || $account->status <> 1 ) return;
 
     // login by assigning account to global $user object
+    global $user;
     $user = $account;
     if (!variable_get('ip_login_suppress_messages', 0)) {
       // notify user - if messages not suppressed
@@ -601,9 +603,8 @@ function ip_login_match_quad($find_value, $in_range) {
  * Returns TRUE if a user has permission to log out and back in as another user
  */
 function _ip_login_can_login_as_another_user($user) {
-  // only allow users with correct permission to log in as another user,
-  // this presently enforced by an immediate re-login by IP
-  if ($user->uid == 1) return TRUE; // super user can
+  // super user can log in as another user
+  if ($user->uid == 1) return TRUE;
   // people who can administer this module can
   if (user_access('administer ip login', $user)) return TRUE;
   // people running from their own machines can

@@ -1,4 +1,3 @@
-; $Id: ip_login.info $
 name = IP Login
 description = Allows users to be automatically login in by matching IP address, range or wildcards.
 core = 7.x
