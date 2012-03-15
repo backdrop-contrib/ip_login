@@ -209,7 +209,7 @@ function _ip_login_user_list_table() {
       )
     );
   }
-  $header = array('Username', 'IP range', 'Operations');
+  $header = array('Username', 'IP ranges', 'Operations');
   if (isset($rows[0])) {
     $table = theme('table', array('header' => $header, 'rows' => $rows));
     $table.= l(
