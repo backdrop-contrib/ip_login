@@ -4,14 +4,14 @@
  * Originally by David W Thomas
  * Major enhancements and 2.x branch by Jim Kirkpatrick
  * Other big contributions from:
- *   johnv: Code tidy/refactor & D7 version - http://drupal.org/node/1151458
+ *   JohnV: Code tidy/refactor & D7 version - http://drupal.org/node/1151458
+ *   PeterX: Many bug fixes and tweaks
  */
 
 /*
  * @todo for security, IP addresses and ranges should really be checked for collisions between existing accounts users
  * @todo Check usage of $GLOBALS['conf']['cache'] in ip_login_attempt_login())
  */
-
 define('ATTEMPT_IP_LOGIN', 'user/login_by_ip'); // path for ip login
 define('IP_LOGOUT', 'user/logout'); // path for user logout (different between D6/D7)
 define('IP_CHECKED', 'ip_login_checked'); // TRUE when IP check has happened
@@ -310,6 +310,11 @@ function ip_login_user_insert(&$edit, $account, $category) {
  * Implements hook_user_update().
  */
 function ip_login_user_update(&$edit, $account, $category) {
+  // Only update if ip_login_match field returned to avoid issue with Remember Me
+  // (and others using hook_user update) wiping the field. By PeterX
+  // http://drupal.org/node/1482934
+  if(!isset($edit['ip_login_match'])) return;
+  // all ok, save the data.
   _ip_login_set_user_range(
     $account->uid,
     isset($edit['ip_login_match']) ? trim(check_plain($edit['ip_login_match'])) : NULL

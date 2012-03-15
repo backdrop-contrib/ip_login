@@ -2,7 +2,6 @@
 /**
  * @file
  * Sets up the IP Login admin page settings.
- *
  */
 
 /**
