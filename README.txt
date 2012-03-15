@@ -105,5 +105,5 @@ Notes & possible incompatibilities
   slightly since these issues were reported so it might well work now. You
   should note that any module that wipes and/or recreates the session will
   possibly have compatibility issues with IP Login:
-  * Secure Pages Hijack Prevention
   * Legal
+  * Secure Pages Hijack Prevention

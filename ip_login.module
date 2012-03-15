@@ -112,6 +112,15 @@ function ip_login_menu() {
     'file' => 'ip_login.admin.inc',
     'type' => MENU_NORMAL_ITEM,
     );
+  $items['admin/people/ip_login'] = array(
+    'title' => 'Users with IP Login',
+    'description' => 'Lists the users who can auto-login by IP address',
+    'access callback' => 'user_access',
+    'access arguments' => array('administer ip login'),
+    'page callback' => 'ip_login_user_list',
+    'file' => 'ip_login.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+    );
   return $items;
 }
 
@@ -535,10 +544,12 @@ function ip_login_user_logout() {
   setcookie(LOGIN_AS_DIFFERENT_USER, $_COOKIE[LOGIN_AS_DIFFERENT_USER], time() +3600, '/'); // Cookie valid for 1 hr.
 
   if (!$can_login_as_another_user) {
-    // @todo: it is possible that some other hook_user_logout() has been called already.
-    //        does this generate an undetermined state?
-
-    $message = t('This account does not have permission to log out once logged in automatically. You have been logged back in.');
+    // @todo: it is possible that some other hook_user_logout() has been called already
+    // does this generate an undetermined state?
+    $message = t(variable_get('ip_login_logged_back_in',
+      'This account does not have permission to log out once logged in automatically. You have been logged back in.')
+    );
+    $message = token_replace($message, array('user' => $user), array('clear' => true));
     drupal_set_message($message, 'warning');
     // show the login page
     drupal_goto(variable_get('ip_login_destination', 'user'));

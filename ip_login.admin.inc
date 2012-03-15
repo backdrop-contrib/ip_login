@@ -5,6 +5,9 @@
  *
  */
 
+/**
+ * Returns the settings form
+ */
 function ip_login_admin_settings() {
   $form['ip_address'] = array(
     '#prefix' => '<div class="messages status">',
@@ -12,14 +15,12 @@ function ip_login_admin_settings() {
     '#markup' => t('According to Drupal\'s <code>ip_address()</code> function <strong>your IP address is <code>@ip_address</code></strong>.', array('@ip_address' => ip_address())),
     '#suffix' => ' ' . t('Tip: You can find your computer\'s external IP address at <a href="http://www.whatsmyip.org/">www.whatsmyip.org</a>.') . '</div>'
   );
-
-  $form['ip_login_users_container'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('IP Login-enabled users'),
-    '#description' => t('Users for which IP Login is enabled are listed below.'),
-    '#value' => _ip_login_users_display_table()
+  $form['ip_login_users'] = array(
+    '#markup' => t(
+      '<p><strong>Note:</strong> To manage users, please see the <a href="!link">list of users with IP Login enabled</a>.</p>',
+      array('!link' => '/admin/people/ip_login')
+    )
   );
-
   $form['ip_login_enabled'] = array(
     '#type' => 'checkbox',
     '#title' => t('IP Login enabled'),
@@ -85,6 +86,28 @@ function ip_login_admin_settings() {
     '#description' => t('Optional. The position within the login block form for this link.'),
   );
 
+  // Make auto-login message editable.
+  $form['other_messages'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Messages'),
+    '#description' => t('Yuu can alter other messages here and include tokens listed below.'),
+  );
+  $message_default = 'Account [user:name] does not have permission to log out once automatically logged in. You have been logged back in.';
+  $form['other_messages']['ip_login_logged_back_in'] = array(
+    '#type' => 'textarea',
+    '#title' => t('User automatically logged back after attempting logout without permission'),
+    '#description' => t('Text for the message "' . $message_default . '"'),
+    '#default_value' => t(variable_get('ip_login_logged_back_in', $message_default)),
+    '#cols' => 100,
+    '#rows' => 5,
+    '#required' => FALSE,
+  );
+  $form['other_messages']['tokens'] = array(
+    '#theme' => 'token_tree',
+    '#token_types' => array('user'),
+    '#global_types' => TRUE,
+    '#click_insert' => TRUE
+  );
   // allows ip check on certain pages only
   $form['active_pages'] = array(
     '#type' => 'fieldset',
@@ -131,6 +154,28 @@ function ip_login_admin_settings() {
   return system_settings_form($form);
 }
 
+
+/**
+ * Returns a list of IP login-enabled users
+ */
+function ip_login_user_list() {
+  // add handy header
+  $output = '<div class="messages status">';
+  $output .= t('According to Drupal\'s <code>ip_address()</code> function <strong>your IP address is <code>@ip_address</code></strong>. ', array('@ip_address' => ip_address()));
+  $output .= t('Tip: You can find your computer\'s external IP address at <a href="http://www.whatsmyip.org/">www.whatsmyip.org</a>.') . '</div>';
+  // add table of IP-enabled users
+  $output .= '<h3>' . t('IP Login-enabled users') . '</h3>';  
+  $output .= t(
+    '<p>Users for which IP Login is enabled are listed below. Login behaviour is controlled <a href="!link">IP Login settings</a>.</p>',
+    array('!link' => '/admin/config/people/ip_login')
+  );
+  $output .= _ip_login_user_list_table();
+  return $output;
+}
+
+/**
+ * Submit handler for admin settings form
+ */
 function ip_login_admin_settings_submit($form, &$form_state) {
   if ($form_state['values']['check_pages']) {
     variable_set('ip_login_active_pages', $form_state['values']['check_mode'] . $form_state['values']['check_pages']);
@@ -140,7 +185,10 @@ function ip_login_admin_settings_submit($form, &$form_state) {
   }
 }
 
-function _ip_login_users_display_table() {
+/**
+ * Generates a table of IP-enabled users
+ */
+function _ip_login_user_list_table() {
   // get all IP-login enabled users and display in a table on the admin page
   $rows = array();
   $result = db_query(
@@ -175,7 +223,7 @@ function _ip_login_users_display_table() {
   else {
     return t('There are presently no users with IP login ranges set.') . ' ' .
       l(
-        t('Edit a user account to add some IP addresses.'),
+        t('Edit a user account to add some IP addresses'),
         'admin/people/people'
       );
   }
