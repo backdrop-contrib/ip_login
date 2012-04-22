@@ -190,11 +190,10 @@ function _ip_login_user_list_table() {
   // get all IP-login enabled users and display in a table on the admin page
   $rows = array();
   $result = db_query(
-    "SELECT users.name, users.uid, ip_login_user.ip_match
-     FROM {users}
-     INNER JOIN {ip_login_user} ON ip_login_user.uid = users.uid
-     ORDER BY ip_login_user.ip_match");
-
+    "SELECT u.name, u.uid, ip.ip_match
+     FROM {users} u
+     INNER JOIN {ip_login_user} ip ON ip.uid = u.uid
+     ORDER BY ip.ip_match");
   foreach ($result as $row) {
     $rows[] = array(
       $row->name,
