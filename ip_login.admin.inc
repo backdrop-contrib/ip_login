@@ -211,7 +211,7 @@ function _ip_login_user_list_table() {
   $header = array('Username', 'IP ranges', 'Operations');
   if (isset($rows[0])) {
     $table = theme('table', array('header' => $header, 'rows' => $rows));
-    $table.= l(
+    $table .= l(
       t('Edit a user account to add more IP addresses.'),
       'admin/people/people'
       );

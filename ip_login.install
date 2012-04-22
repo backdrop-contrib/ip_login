@@ -1,7 +1,7 @@
 <?php
 /**
  * @file
- * Install file of the IP Login module
+ * Install file of the IP Login module.
  */
 
 /**
@@ -9,14 +9,17 @@
  */
 function ip_login_install() {
 //  drupal_install_schema('ip_login');  // not needed anymore in Drupal 7
-  drupal_set_message(st("IP Login settings are available under !link",
-    array( '!link' => l(st('Administer > Configuration > People > IP Login settings'), 'admin/config/people/ip_login' ))
+  drupal_set_message(
+    st('IP Login settings are available under <a href="@link">Administer > Configuration > People > IP Login settings</a>.',
+    array(
+      '@link' => 'admin/config/people/ip_login'
+    )
   ));
   variable_set('ip_login_enabled', 1);
 }
 
 /**
- * Implementation of hook_schema()
+ * Implementation of hook_schema().
  */
 function ip_login_schema() {
   $schema['ip_login_user'] = array(
@@ -43,7 +46,7 @@ function ip_login_schema() {
 }
 
 /*
- * Implementation of hook_uninstall()
+ * Implementation of hook_uninstall().
  */
 function ip_login_uninstall() {
   drupal_uninstall_schema('ip_login');

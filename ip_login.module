@@ -1,11 +1,13 @@
 <?php
 /**
+ * @file
  * Allow user login by IP addresses, ranges or wildcards.
+ *
  * Originally by David W Thomas
  * Major enhancements and 2.x branch by Jim Kirkpatrick
  * Other big contributions from:
- *   JohnV: Code tidy/refactor & D7 version - http://drupal.org/node/1151458
- *   PeterX: Many bug fixes and tweaks
+ *  - JohnV: Code tidy/refactor & D7 version - http://drupal.org/node/1151458
+ *  - PeterX: Many bug fixes and tweaks
  */
 
 /*
@@ -46,12 +48,12 @@ function ip_login_boot() {
     if (is_null($can_login_as_another_user)) {
       // first time login for user, so log in automatically.
       ip_login_login($matched_uid);
-      drupal_goto(ltrim($_SERVER['REQUEST_URI'], '/'));
-     }
+      drupal_goto(ltrim(request_uri(), '/'));
+    }
     elseif ($can_login_as_another_user == FALSE) {
       // user logged out, but is not allowed to use another user, so log in again.
       ip_login_login($matched_uid);
-      drupal_goto(ltrim($_SERVER['REQUEST_URI'], '/'));
+      drupal_goto(ltrim(request_uri(), '/'));
     }
     elseif ($can_login_as_another_user == TRUE) {
       // user logged out, and is allowed to login as another user,
@@ -60,7 +62,7 @@ function ip_login_boot() {
     else {
       // do automatic login.
       ip_login_login($matched_uid);
-      drupal_goto(ltrim($_SERVER['REQUEST_URI'], '/'));
+      drupal_goto(ltrim(request_uri(), '/'));
     }
   }
 }
@@ -314,7 +316,7 @@ function ip_login_user_update(&$edit, $account, $category) {
   // Only update if ip_login_match field returned to avoid issue with Remember Me
   // (and others using hook_user update) wiping the field. By PeterX
   // http://drupal.org/node/1482934
-  if(!isset($edit['ip_login_match'])) return;
+  if (!isset($edit['ip_login_match'])) return;
   // all ok, save the data.
   _ip_login_set_user_range(
     $account->uid,
@@ -563,7 +565,7 @@ function ip_login_user_logout() {
     $message = t(variable_get('ip_login_logged_back_in',
       'This account does not have permission to log out once logged in automatically. You have been logged back in.')
     );
-    $message = token_replace($message, array('user' => $user), array('clear' => true));
+    $message = token_replace($message, array('user' => $user), array('clear' => TRUE));
     drupal_set_message($message, 'warning');
     // show the login page
     drupal_goto(variable_get('ip_login_destination', 'user'));
