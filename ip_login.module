@@ -187,12 +187,12 @@ function ip_login_form_alter(&$form, &$form_state, $form_id) {
       $matched_uid = ip_login_check(ip_address());
       if ($matched_uid > 0) {
         $link_text = t(variable_get('ip_login_link_login_page', 'Log in automatically'));
-        if (strlen($link_text)) { // hide if no link text
+        if (drupal_strlen($link_text)) { // hide if no link text
           $link_help = t(variable_get('ip_login_link_login_page_help', "Your computer's IP address has been matched and validated."));
           $markup = '<br/>';
           $markup .= '<ul class="item-list">';
           $markup .= '<li><strong>' . l($link_text, ATTEMPT_IP_LOGIN, array('query' => array('ip_login_override_pages' => 'yes'))) . '</strong>';
-          if (strlen($link_help)) $markup .= '<br/><small>' . filter_xss_admin($link_help) . '</small>';
+          if (drupal_strlen($link_help)) $markup .= '<br/><small>' . filter_xss_admin($link_help) . '</small>';
           $markup .= '</li></ul>';
           $form['ip_login'] = array(
             '#markup' => $markup,
@@ -205,7 +205,7 @@ function ip_login_form_alter(&$form, &$form_state, $form_id) {
       $matched_uid = ip_login_check(ip_address());
       if ($matched_uid > 0) {
         $link_text = t(variable_get('ip_login_link_login_block', 'Log in automatically'));
-        if (strlen($link_text)) { // hide if no link text
+        if (drupal_strlen($link_text)) { // hide if no link text
           $markup = '<ul class="item-list">';
           $markup .= '<li><strong>' . l($link_text, ATTEMPT_IP_LOGIN, array('query' => array('ip_login_override_pages' => 'yes'))) . '</strong>';
           $markup .= '</li></ul>';
@@ -513,7 +513,7 @@ function ip_login_login($uid) {
       // make a url to reload page, remove newlines from the URL to avoid header injection attacks.
       // use admin settings for destination if set.
       $url = variable_get('ip_login_destination', '');
-      if (strlen($url) == 0) $url = str_replace(array("\n", "\r"), '', $_GET["q"]);
+      if (drupal_strlen($url) == 0) $url = str_replace(array("\n", "\r"), '', $_GET["q"]);
       if ($url == 'logout') $url = '<front>';
       $url = url($url, array('query' => array('ip_login_no_cache=' . md5(time())), 'absolute' => TRUE));
       // Before the redirect, allow modules to react to the end of the page request.
