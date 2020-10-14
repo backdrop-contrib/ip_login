@@ -2,12 +2,6 @@
 /**
  * @file
  * Allow user login by IP addresses, ranges or wildcards.
- *
- * Originally by David W Thomas
- * Major enhancements and 2.x branch by Jim Kirkpatrick
- * Other big contributions from:
- *  - JohnV: Code tidy/refactor & D7 version - http://drupal.org/node/1151458
- *  - PeterX: Many bug fixes and tweaks
  */
 
 /*
@@ -33,7 +27,7 @@ function ip_login_boot() {
   if ($user->uid != 0) return;
 
   // skip rest of this if the admin has disabled IP login
-  if (!variable_get('ip_login_enabled', 1)) return;
+  if (!config_get('ip_login.settings', 'ip_login_enabled')) return;
 
   // Avoid settings cookies if not on an IP Login-enabled page to improve
   // external caching support - http://drupal.org/node/1263234 thanks Vacilando
@@ -48,12 +42,12 @@ function ip_login_boot() {
     if (is_null($can_login_as_another_user)) {
       // first time login for user, so log in automatically.
       ip_login_login($matched_uid);
-      drupal_goto(ltrim(request_uri(), '/'));
+      backdrop_goto(ltrim(request_uri(), '/'));
     }
     elseif ($can_login_as_another_user == FALSE) {
       // user logged out, but is not allowed to use another user, so log in again.
       ip_login_login($matched_uid);
-      drupal_goto(ltrim(request_uri(), '/'));
+      backdrop_goto(ltrim(request_uri(), '/'));
     }
     elseif ($can_login_as_another_user == TRUE) {
       // user logged out, and is allowed to login as another user,
@@ -62,7 +56,7 @@ function ip_login_boot() {
     else {
       // do automatic login.
       ip_login_login($matched_uid);
-      drupal_goto(ltrim(request_uri(), '/'));
+      backdrop_goto(ltrim(request_uri(), '/'));
     }
   }
 }
@@ -103,6 +97,17 @@ function ip_login_help_ranges($intro = '') {
 }
 
 /**
+* Implements hook_config_info().
+*/
+function ip_login_config_info() {
+  $prefixes['ip_login.settings'] = array(
+    'label' => t('IP Login'),
+    'group' => t('Configuration'),
+  );
+  return $prefixes;
+}
+
+/**
  * Implementation of hook_menu().
  */
 function ip_login_menu() {
@@ -117,7 +122,7 @@ function ip_login_menu() {
     'description' => 'Configure IP Login settings',
     'access callback' => 'user_access',
     'access arguments' => array('administer ip login'),
-    'page callback' => 'drupal_get_form',
+    'page callback' => 'backdrop_get_form',
     'page arguments' => array('ip_login_admin_settings'),
     'file' => 'ip_login.admin.inc',
     'type' => MENU_NORMAL_ITEM,
@@ -157,7 +162,7 @@ function ip_login_attempt_login() {
   if ($matched_uid > 0) {
     ip_login_login($matched_uid);
   }
-  drupal_goto(variable_get('ip_login_destination', 'user'));
+  backdrop_goto(config_get('ip_login.settings', 'ip_login_destination'));
 }
 
 /**
@@ -186,17 +191,17 @@ function ip_login_form_alter(&$form, &$form_state, $form_id) {
     case 'user_login':
       $matched_uid = ip_login_check(ip_address());
       if ($matched_uid > 0) {
-        $link_text = t(variable_get('ip_login_link_login_page', 'Log in automatically'));
-        if (drupal_strlen($link_text)) { // hide if no link text
-          $link_help = t(variable_get('ip_login_link_login_page_help', "Your computer's IP address has been matched and validated."));
+        $link_text = t(config_get('ip_login.settings', 'ip_login_link_login_page'));
+        if (backdrop_strlen($link_text)) { // hide if no link text
+          $link_help = t(config_get('ip_login.settings', 'ip_login_link_login_page_help'));
           $markup = '<br/>';
           $markup .= '<ul class="item-list">';
           $markup .= '<li><strong>' . l($link_text, ATTEMPT_IP_LOGIN, array('query' => array('ip_login_override_pages' => 'yes'))) . '</strong>';
-          if (drupal_strlen($link_help)) $markup .= '<br/><small>' . filter_xss_admin($link_help) . '</small>';
+          if (backdrop_strlen($link_help)) $markup .= '<br/><small>' . filter_xss_admin($link_help) . '</small>';
           $markup .= '</li></ul>';
           $form['ip_login'] = array(
             '#markup' => $markup,
-            '#weight' => variable_get('ip_login_link_login_page_weight', -10),
+            '#weight' => config_get('ip_login.settings', 'ip_login_link_login_page_weight'),
           );
         }
       }
@@ -204,14 +209,14 @@ function ip_login_form_alter(&$form, &$form_state, $form_id) {
     case 'user_login_block':
       $matched_uid = ip_login_check(ip_address());
       if ($matched_uid > 0) {
-        $link_text = t(variable_get('ip_login_link_login_block', 'Log in automatically'));
-        if (drupal_strlen($link_text)) { // hide if no link text
+        $link_text = t(config_get('ip_login.settings', 'ip_login_link_login_block'));
+        if (backdrop_strlen($link_text)) { // hide if no link text
           $markup = '<ul class="item-list">';
           $markup .= '<li><strong>' . l($link_text, ATTEMPT_IP_LOGIN, array('query' => array('ip_login_override_pages' => 'yes'))) . '</strong>';
           $markup .= '</li></ul>';
           $form['ip_login'] = array(
             '#markup' => $markup,
-            '#weight' => variable_get('ip_login_link_login_page_weight', -10),
+            '#weight' => config_get('ip_login.settings', 'ip_login_link_login_page_weight'),
           );
         }
       }
@@ -254,7 +259,7 @@ function ip_login_block_info() {
   $blocks = array();
   $blocks['ip-login-link'] = array(
     'info' => t('Log in by IP link'),
-    'cache' => DRUPAL_NO_CACHE,
+    'cache' => BACKDROP_NO_CACHE,
   );
   return $blocks;
 }
@@ -272,7 +277,7 @@ function ip_login_block_view($delta = '') {
   if ($delta <> 'ip-login-link') return;
   // build simple block
   // @todo should be a hook_theme call
-  $link_text = t(variable_get('ip_login_link_login_block', 'Log in automatically'));
+  $link_text = t(config_get('ip_login.settings', 'ip_login_link_login_block'));
   $markup = '<div class="ip-login-available"><span class="ip-login-link">';
   $markup .= l($link_text, ATTEMPT_IP_LOGIN, array('query' => array('ip_login_override_pages' => 'yes')));
   $markup .= '</span></div>';
@@ -302,25 +307,25 @@ function _ip_login_user_form_validate($form, &$form_state) {
 /**
  * Implements hook_user_insert().
  */
-function ip_login_user_insert(&$edit, $account, $category) {
+function ip_login_user_insert($account) {
   _ip_login_set_user_range(
     $account->uid,
-    isset($edit['ip_login_match']) ? trim(check_plain($edit['ip_login_match'])) : NULL
+    isset($account->ip_login_match) ? trim(check_plain($account->ip_login_match)) : NULL
   );
 }
 
 /**
  * Implements hook_user_update().
  */
-function ip_login_user_update(&$edit, $account, $category) {
+function ip_login_user_update($account) {
   // Only update if ip_login_match field returned to avoid issue with Remember Me
   // (and others using hook_user update) wiping the field. By PeterX
   // http://drupal.org/node/1482934
-  if (!isset($edit['ip_login_match'])) return;
+  if (!isset($account->ip_login_match)) return;
   // all ok, save the data.
   _ip_login_set_user_range(
     $account->uid,
-    isset($edit['ip_login_match']) ? trim(check_plain($edit['ip_login_match'])) : NULL
+    isset($account->ip_login_match) ? trim(check_plain($account->ip_login_match)) : NULL
   );
 }
 
@@ -331,13 +336,6 @@ function ip_login_user_delete($account) {
   _ip_login_set_user_range(
     $account->uid,
     NULL
-  );
-}
-
-function ip_login_user_form_submit(&$edit, $account, $category) {
-  _ip_login_set_user_range(
-    $account->uid,
-    isset($edit['ip_login_match']) ? trim(check_plain($edit['ip_login_match'])) : NULL
   );
 }
 
@@ -406,7 +404,7 @@ function ip_login_check($ip, $diagnostics = FALSE) {
  */
 function ip_login_check_path() {
   if (!isset($_GET['ip_login_override_pages'])) {
-    $pages = variable_get('ip_login_active_pages', '');
+    $pages = config_get('ip_login.settings', 'ip_login_active_pages');
     if ($pages) {
       $page_match = FALSE;
       // first char, if variable set, is 'check_mode' - remainder is paths to match or PHP
@@ -414,7 +412,7 @@ function ip_login_check_path() {
       $pages = substr($pages, 1);
       if ($check_mode < 2) {
         // Compare with the path with allowed pages.
-        // Since this happens in hook_boot, we cannot call drupal_get_path_alias
+        // Since this happens in hook_boot, we cannot call backdrop_get_path_alias
         // so call our own path matcher code and avoid a DB/alias check
         $path = (isset($_GET['q']) ? $_GET['q'] : '');
         $page_match = ip_login_match_path($path, $pages);
@@ -425,7 +423,7 @@ function ip_login_check_path() {
       }
       else {
         // evaluate PHP
-        $page_match = drupal_eval($pages);
+        $page_match = backdrop_eval($pages);
       }
       // if we don't have a path/PHP match, don't log in
       if (!$page_match) return FALSE;
@@ -437,15 +435,15 @@ function ip_login_check_path() {
 
 /**
  * Check if a path matches any pattern in a set of patterns. This is a clone of
- * drupal_match_path() found in path.inc because the bootstrap hasn't occurred,
+ * backdrop_match_path() found in path.inc because the bootstrap hasn't occurred,
  * so path.inc isn't available.
  *
- * See: http://api.drupal.org/api/drupal/includes--path.inc/function/drupal_match_path/6
+ * See: http://api.drupal.org/api/drupal/includes--path.inc/function/backdrop_match_path/6
  */
 function ip_login_match_path($path, $patterns) {
   static $regexps;
   if (!isset($regexps[$patterns])) {
-    $regexps[$patterns] = '/^(' . preg_replace(array('/(\r\n?|\n)/', '/\\\\\*/', '/(^|\|)\\\\<front\\\\>($|\|)/'), array('|', '.*', '\1' . preg_quote(variable_get('site_frontpage', 'node'), '/') . '\2'), preg_quote($patterns, '/')) . ')$/';
+    $regexps[$patterns] = '/^(' . preg_replace(array('/(\r\n?|\n)/', '/\\\\\*/', '/(^|\|)\\\\<front\\\\>($|\|)/'), array('|', '.*', '\1' . preg_quote(config_get('system.core', 'site_frontpage'), '/') . '\2'), preg_quote($patterns, '/')) . ')$/';
   }
   return preg_match($regexps[$patterns], $path);
 }
@@ -462,7 +460,7 @@ function ip_login_login($uid) {
     if (ip_login_check_path() === FALSE) return;
 
     // get user module and include some handy functions
-    drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
+    backdrop_bootstrap(BACKDROP_BOOTSTRAP_FULL);
 
     // get account (reload from db) , bail if no loaded active user
     $account = user_load($uid, TRUE);
@@ -471,15 +469,15 @@ function ip_login_login($uid) {
     // login by assigning account to global $user object
     global $user;
     $user = $account;
-    if (!variable_get('ip_login_suppress_messages', 0)) {
+    if (!config_get('ip_login.settings', 'ip_login_suppress_messages')) {
       // notify user - if messages not suppressed
       $message = t(
         'Welcome %name. You have been automatically logged into %sitename.',
         array(
           '%name' => $user->name,
-          '%sitename' => variable_get('site_name', 'this website'),
+          '%sitename' => config_get('system.core', 'site_name'),
         ));
-      drupal_set_message($message);
+      backdrop_set_message($message);
 
       // add handy message for those who can log out and then back in as another user
       if (_ip_login_can_login_as_another_user($user)) {
@@ -487,7 +485,7 @@ function ip_login_login($uid) {
           'You may also <a href="@other_user_link">log in as another user</a> if required.',
           array('@other_user_link' => url(IP_LOGOUT))
         );
-        drupal_set_message($message);
+        backdrop_set_message($message);
       }
     }
 
@@ -505,15 +503,15 @@ function ip_login_login($uid) {
     // This is called before hook_user in case one of those functions fails
     // or incorrectly does a redirect which would leave the old session in place.
     $edit = NULL;
-    drupal_session_regenerate();
+    backdrop_session_regenerate();
     user_module_invoke('login', $edit, $user);
 
     // following borrowed from ipAuthenticator's login and avoids caching issues
     if (variable_get('cache', CACHE_DISABLED) != CACHE_DISABLED && !isset($_GET['ip_login_no_cache'])) {
       // make a url to reload page, remove newlines from the URL to avoid header injection attacks.
       // use admin settings for destination if set.
-      $url = variable_get('ip_login_destination', '');
-      if (drupal_strlen($url) == 0) $url = str_replace(array("\n", "\r"), '', $_GET["q"]);
+      $url = config_get('ip_login.settings', 'ip_login_destination');
+      if (backdrop_strlen($url) == 0) $url = str_replace(array("\n", "\r"), '', $_GET["q"]);
       if ($url == 'logout') $url = '<front>';
       $url = url($url, array('query' => array('ip_login_no_cache=' . md5(time())), 'absolute' => TRUE));
       // Before the redirect, allow modules to react to the end of the page request.
@@ -533,10 +531,10 @@ function ip_login_login($uid) {
  * Implementation of hook_user_logout
  *
  * Called from hook_user on logout, most of the code taken from user_logout()
- * and _drupal_bootstrap(DRUPAL_BOOTSTRAP_SESSION).
+ * and _backdrop_bootstrap(BACKDROP_BOOTSTRAP_SESSION).
  * D7-changes: this is now an implementation of a hook, so:
  *  - Only do a logout, leave the automatic login to ip_login_boot;
- *  - prevent logging out if needed, just by calling drupal_goto()
+ *  - prevent logging out if needed, just by calling backdrop_goto()
  *  - N.B. check user_logout() in user.pages.inc; this is the calling function;
  *  - N.B. check devel_switch_user() in devel.module; here users are switched, too;
  */
@@ -562,13 +560,12 @@ function ip_login_user_logout() {
   if (!$can_login_as_another_user) {
     // @todo: it is possible that some other hook_user_logout() has been called already
     // does this generate an undetermined state?
-    $message = t(variable_get('ip_login_logged_back_in',
-      'This account does not have permission to log out once logged in automatically. You have been logged back in.')
+    $message = t(config_get('ip_login.settings', 'ip_login_logged_back_in')
     );
     $message = token_replace($message, array('user' => $user), array('clear' => TRUE));
-    drupal_set_message($message, 'warning');
+    backdrop_set_message($message, 'warning');
     // show the login page
-    drupal_goto(variable_get('ip_login_destination', 'user'));
+    backdrop_goto(config_get('ip_login.settings', 'ip_login_destination'));
   }
 }
 

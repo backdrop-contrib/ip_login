@@ -8,14 +8,13 @@
  * Implementation of hook_install().
  */
 function ip_login_install() {
-//  drupal_install_schema('ip_login');  // not needed anymore in Drupal 7
-  drupal_set_message(
-    st('IP Login settings are available under <a href="@link">Administer > Configuration > People > IP Login settings</a>.',
-    array(
-      '@link' => 'admin/config/people/ip_login'
-    )
-  ));
-  variable_set('ip_login_enabled', 1);
+  if (!backdrop_is_cli()) {
+    $t = get_t();
+    backdrop_set_message($t("IP Login installed successfully. !link IP settings.", array(
+      '!link' => l($t('Configure'), 'admin/config/people/ip_login'),
+    )));
+  }
+  config_set('ip_login.settings', 'ip_login_enabled', 1);
 }
 
 /**
@@ -49,14 +48,41 @@ function ip_login_schema() {
  * Implementation of hook_uninstall().
  */
 function ip_login_uninstall() {
-  drupal_uninstall_schema('ip_login');
-  variable_del('ip_login_active_pages');
-  variable_del('ip_login_enabled');
-  variable_del('ip_login_destination');
-  variable_del('ip_login_link_login_block');
-  variable_del('ip_login_link_login_block_weight');
-  variable_del('ip_login_link_login_page');
-  variable_del('ip_login_link_login_page_help');
-  variable_del('ip_login_link_login_page_weight');
-  variable_del('ip_login_suppress_messages');
+  backdrop_uninstall_schema('ip_login');
+}
+
+/**
+ * @defgroup updates-7.x-to-1.x Updates from 7.x to 1.x
+ * @{
+ * Update functions from Backdrop 7.x to Backdrop CMS 1.x.
+ */
+
+/**
+ * Move IP Login settings from variables to config.
+ */
+function ip_login_update_1000() {
+  // Migrate variables to config.
+  $config = config('ip_login.settings');
+  $config->set('', update_config_get('ip_login.settings', '', 0));
+  $config->set('', update_variable_get('ip_login_active_pages', ''));
+  $config->set('', update_variable_get('ip_login_enabled', 1));
+  $config->set('', update_variable_get('ip_login_destination', 'user'));
+  $config->set('', update_variable_get('ip_login_link_login_block', 'Log in automatically'));
+  $config->set('', update_variable_get('ip_login_link_login_block_weight', -10));
+  $config->set('', update_variable_get('ip_login_link_login_page', 'Log in automatically'));
+  $config->set('', update_variable_get('ip_login_link_login_page_help', "Your computer's IP address has been matched and validated."));
+  $config->set('', update_variable_get('ip_login_link_login_page_weight', -10));
+  $config->set('', update_variable_get('ip_login_suppress_messages', 0));
+  $config->save();
+
+  // Delete variables.
+  update_variable_del('ip_login_active_pages');
+  update_variable_del('ip_login_enabled');
+  update_variable_del('ip_login_destination');
+  update_variable_del('ip_login_link_login_block');
+  update_variable_del('ip_login_link_login_block_weight');
+  update_variable_del('ip_login_link_login_page');
+  update_variable_del('ip_login_link_login_page_help');
+  update_variable_del('ip_login_link_login_page_weight');
+  update_variable_del('ip_login_suppress_messages');
 }

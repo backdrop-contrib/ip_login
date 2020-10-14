@@ -1,6 +1,7 @@
 name = IP Login
 description = Allows users to be automatically login in by matching IP address, range or wildcards.
-core = 7.x
-version = "7.x-2.x-dev"
+backdrop = 1.x
+type = module
+
 dependencies[] = user
 configure = admin/config/people/ip_login
