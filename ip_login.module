@@ -62,41 +62,6 @@ function ip_login_boot() {
 }
 
 /**
- * Implementation of hook_help().
- */
-function ip_login_help($path, $arg) {
-  // @todo use t()
-  switch ($path) {
-    case 'admin/config/people/ip_login':
-      $help = '<p>';
-      $help .= t("This module allows this site to automatically authenticate and login users arriving with a chosen IP address - optionally at certain pages only.") . '</p> <p>';
-      $help .= t(
-        'It also allows users with the <code>administer ip login</code> and <code>can log in as another user</code> <a href="@permissions-link">permissions</a> to log out and log in as another user, with other users being forced to stay logged in.',
-        array('@permissions-link' => '/admin/people/permissions#module-ip_login'));
-      $help .=  '</p>';
-      $help .= ip_login_help_ranges();
-    return $help;
-  }
-}
-
-/**
- * Provides help about accepted values of IP ranges etc.
- */
-function ip_login_help_ranges($intro = '') {
-  $help = '<p id="ip_login">' . $intro . ' ' . t('Accepted IP Login match values are:') . '</p>';
-  $help .= '<ul><li>';
-  $help .= t("Single IP matches like <code>123.123.123.123</code>");
-  $help .= '</li><li>';
-  $help .= t("Wildcards using an asterisk (<code>*</code>) in any quadrant except the first one, for example <code>123.123.123.*</code> or <code>100.*.*.*</code> etc.");
-  $help .= '</li><li>';
-  $help .= t("Ranges using a hyphen (<code>-</code>) in any quadrant except the first one, for example <code>123.123.123.100-200</code> etc.");
-  $help .= '</li><li>';
-  $help .= t("Any number of comma-separated IP addresses or ranges like <code>10.11.12.13, 123.123.123.100-200, 123.123.124-125.*</code> etc.");
-  $help .= '</li></ul>';
-  return $help;
-}
-
-/**
 * Implements hook_config_info().
 */
 function ip_login_config_info() {

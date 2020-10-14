@@ -15,7 +15,26 @@ function ip_login_admin_settings() {
     '#markup' => t('According to Backdrop\'s <code>ip_address()</code> function <strong>your IP address is <code>@ip_address</code></strong>.', array('@ip_address' => ip_address())),
     '#suffix' => ' ' . t('Tip: You can find your computer\'s external IP address at <a href="http://www.whatsmyip.org/">www.whatsmyip.org</a>.') . '</div>'
   );
-  $form['ip_login_users'] = array(
+
+  $form['introduction'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Introduction'),
+  );
+  $intro = '<p>' . t("Allows this site to automatically authenticate and login users arriving with a chosen IP address - optionally at certain pages only.") . '</p>';
+  $intro .= ' <p>' . t(
+    'It also allows users with the <code>administer ip login</code> and <code>can log in as another user</code> <a href="@permissions-link">permissions</a> to log out and log in as another user, with other users being forced to stay logged in.',
+    array('@permissions-link' => '/admin/config/people/permissions#module-ip_login')) . '</p>';
+  $intro .= '<p id="ip_login">' . t('Accepted IP Login match values are:') . '</p>';
+  $intro .= '<ul><li>';
+  $intro .= t("Single IP matches like <code>123.123.123.123</code>") . '</li>';
+  $intro .= '<li>' . t("Wildcards using an asterisk (<code>*</code>) in any quadrant except the first one, for example <code>123.123.123.*</code> or <code>100.*.*.*</code> etc.") . '</li>';
+  $intro .= '<li>' . t("Ranges using a hyphen (<code>-</code>) in any quadrant except the first one, for example <code>123.123.123.100-200</code> etc.") . '</li>';
+  $intro .= '<li>' . t("Any number of comma-separated IP addresses or ranges like <code>10.11.12.13, 123.123.123.100-200, 123.123.124-125.*</code> etc.");
+  $intro .= '</li></ul>';
+  $form['introduction']['ip_login'] = array(
+    '#markup' => $intro,
+  );
+  $form['introduction']['ip_login_users'] = array(
     '#markup' => t(
       '<p><strong>Note:</strong> To manage users, please see the <a href="!link">list of users with IP Login enabled</a>.</p>',
       array('!link' => '/admin/people/ip_login')
