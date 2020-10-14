@@ -62,6 +62,41 @@ function ip_login_boot() {
 }
 
 /**
+ * Provides help about accepted values of IP ranges etc.
+ */
+function ip_login_help_ranges($intro = '') {
+  $help = '<p class="ip_login">' . $intro . ' ' . t('Accepted IP Login match values are:') . '</p>';
+  $help .= '<strong>' . t("For IPv4") . '</strong>';
+
+  $ip4[] = t("Single IP matches like <code>123.123.123.123</code>");
+  $ip4[] = t("Wildcards using an asterisk (<code>*</code>) in any quadrant except the first one, for example <code>123.123.123.*</code> or <code>100.*.*.*</code> etc.");
+  $ip4[] = t("Ranges using a hyphen (<code>-</code>) in any quadrant except the first one, for example <code>123.123.123.100-200</code> etc.");
+  $ip4[] = t("Any number of comma-separated IP addresses or ranges like <code>10.11.12.13, 123.123.123.100-200, 123.123.124-125.*</code> etc.");
+
+  $help .= theme_item_list(array(
+    'items' => $ip4,
+    'title' => '',
+    'type' => 'ul',
+    'attributes' => array(),
+  ));
+
+  $help .= '<strong>' . t("For IPv6") . '</strong>';
+
+  $ip6[] = t("Single IPv6 matches like <code>2001:db8:85a3::8a2e:370:7334</code>");
+  $ip6[] = t("Any number of comma-separated IP addresses or ranges like <code>2001:db8:0:0:0:ff00:42:8329, 2001::ff00:42:8329, ::1</code> etc.");
+  $ip6[] = t("Note: The compressed IPv6 address will be expanded when saving it to database. E.g., 2001:db8:0:0:0:ff00:42:8329 gets expanded to 2001:0db8:0000:0000:0000:ff00:0042:8329");
+
+  $help .= theme_item_list(array(
+    'items' => $ip6,
+    'title' => '',
+    'type' => 'ul',
+    'attributes' => array(),
+  ));
+
+  return $help;
+}
+
+/**
 * Implements hook_config_info().
 */
 function ip_login_config_info() {
@@ -203,12 +238,16 @@ function ip_login_form_alter(&$form, &$form_state, $form_id) {
           '#weight' => '-1',
         );
         $form['ip_login_matches']['ip_login_match'] = array(
-          '#type' => 'textfield',
-          '#title' => t('IP address matches'),
-          '#description' => t('IP matches based in format listed above. Leave blank to disable automatic login by IP for this user.'),
-          '#default_value' => _ip_login_get_user_range($account->uid),
-          '#default_value' => _ip_login_get_user_range($account->uid),
-          '#maxlength' => 255,
+          '#type' => 'textarea',
+          '#title' => t('IPv4 address matches'),
+          '#description' => t('IPv4 matches based in format listed above. Leave blank to disable automatic login by IP for this user.'),
+          '#default_value' => _ip_login_get_user_range($account->uid, 4),
+        );
+        $form['ip_login_matches']['ip_login_match6'] = array(
+          '#type' => 'textarea',
+          '#title' => t('IPv6 address matches'),
+          '#description' => t('IPv6 matches based in format listed above. Leave blank to disable automatic login by IP for this user.'),
+          '#default_value' => _ip_login_get_user_range($account->uid, 6),
         );
       }
       break;
@@ -275,7 +314,8 @@ function _ip_login_user_form_validate($form, &$form_state) {
 function ip_login_user_insert($account) {
   _ip_login_set_user_range(
     $account->uid,
-    isset($account->ip_login_match) ? trim(check_plain($account->ip_login_match)) : NULL
+    isset($account->ip_login_match) ? trim(check_plain($account->ip_login_match)) : NULL,
+    isset($account->ip_login_match6) ? trim(check_plain($account->ip_login_match6)) : NULL
   );
 }
 
@@ -290,7 +330,8 @@ function ip_login_user_update($account) {
   // all ok, save the data.
   _ip_login_set_user_range(
     $account->uid,
-    isset($account->ip_login_match) ? trim(check_plain($account->ip_login_match)) : NULL
+    isset($account->ip_login_match) ? trim(check_plain($account->ip_login_match)) : NULL,
+    isset($account->ip_login_match6) ? trim(check_plain($account->ip_login_match6)) : NULL
   );
 }
 
@@ -300,6 +341,7 @@ function ip_login_user_update($account) {
 function ip_login_user_delete($account) {
   _ip_login_set_user_range(
     $account->uid,
+    NULL,
     NULL
   );
 }
@@ -319,36 +361,58 @@ function ip_login_check($ip, $diagnostics = FALSE) {
     return $_SESSION[IP_UID_MATCH];
   }
 
-   // break up IP for ip address
-  $addr = explode(".", check_plain($ip));
   $matches = FALSE;
   $uid_matched = 0;
 
-  // Find user ip matches on the first part of the user's IP ANYWHERE except the end.
-  // Not desperately efficient but works consistently with comma separated IP ranges and spaces,
-  // and these checks are only done once per session anyway.
-  $partial_matches = db_query(
+  // Determine whether it is an IPv4 or IPv6 address
+  if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+    // break up IP for ip address
+    $addr = explode(".", check_plain($ip));
+
+    // Find user ip matches on the first part of the user's IP ANYWHERE except the end.
+    // Not desperately efficient but works consistently with comma separated IP ranges and spaces,
+    // and these checks are only done once per session anyway.
+    $partial_matches = db_query(
       "SELECT uid, ip_match
        FROM {ip_login_user}
        WHERE ip_match LIKE (:addr)
        ORDER by LENGTH(ip_match) ASC",
       array(':addr' => '%' . $addr[0] . '.%')
     );
-  foreach ($partial_matches as $row) {
-    // multiple values are separated with commas so try each in turn
-    $user_ip_ranges = explode(",", $row->ip_match);
-    foreach ($user_ip_ranges as $ip_range) {
-      // clear any whitespace, break into quads, then compare
-      $ip_range = explode('.', trim($ip_range));
-      foreach ($ip_range as $index => $quad) {
-        $matches = ip_login_match_quad($addr[$index], $quad);
-        if (!$matches) break; // no match, escape this foreach and move on to next IP range
+    foreach ($partial_matches as $row) {
+      // multiple values are separated with commas so try each in turn
+      $user_ip_ranges = explode(",", $row->ip_match);
+      foreach ($user_ip_ranges as $ip_range) {
+        // clear any whitespace, break into quads, then compare
+        $ip_range = explode('.', trim($ip_range));
+        foreach ($ip_range as $index => $quad) {
+          $matches = ip_login_match_quad($addr[$index], $quad);
+          if (!$matches) break; // no match, escape this foreach and move on to next IP range
+        }
+        // if it matches, stop here and do login
+        if ($matches) {
+          $uid_matched = $row->uid;
+          break 2; // escape the foreach (ranges) and while (db_result)
+        }
       }
-      // if it matches, stop here and do login
-      if ($matches) {
-        $uid_matched = $row->uid;
-        break 2; // escape the foreach (ranges) and while (db_result)
-      }
+    }
+  }
+  elseif (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+    // Expand IPv6 address.
+    $ip = ip_login_ip6_expand($ip);
+
+    $query = db_query(
+      "SELECT uid
+       FROM {ip_login_user}
+       WHERE ip6_match
+       LIKE (:ip)",
+      array(':ip' => '%' . $ip . '%')
+    );
+
+    $result = $query->fetchField();
+
+    if (!empty($result)) {
+      $uid_matched = $result;
     }
   }
 
@@ -358,6 +422,26 @@ function ip_login_check($ip, $diagnostics = FALSE) {
     $_SESSION[IP_UID_MATCH] = $uid_matched;
   }
   return $uid_matched;
+}
+
+/**
+* Expand IPv6 address.
+*/
+function ip_login_ip6_expand($ip) {
+  if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+    return $ip;
+  }
+
+  // Converts a human readable IP address to its packed in_addr representation.
+  $in_addr = inet_pton($ip);
+
+  // Unpack binary data to hexadecimal format.
+  $hex = unpack("H*", $in_addr);
+  $hex = reset($hex);
+
+  $ip6 = implode(":", str_split($hex, 4));
+
+  return $ip6;
 }
 
 /**
@@ -472,7 +556,7 @@ function ip_login_login($uid) {
     user_module_invoke('login', $edit, $user);
 
     // following borrowed from ipAuthenticator's login and avoids caching issues
-    if (variable_get('cache', CACHE_DISABLED) != CACHE_DISABLED && !isset($_GET['ip_login_no_cache'])) {
+    if (config_get('system.core', 'cache') != CACHE_DISABLED && !isset($_GET['ip_login_no_cache'])) {
       // make a url to reload page, remove newlines from the URL to avoid header injection attacks.
       // use admin settings for destination if set.
       $url = config_get('ip_login.settings', 'ip_login_destination');
@@ -586,15 +670,22 @@ function _ip_login_can_login_as_another_user($user) {
  * Gets a user's IP range match string by uid
  * @param $uid
  *    The user ID
+ * @param $mode
+ *    4 for IPv4 and 6 for IPv6
  * @return
  *    The IP range string for the user if one is found, otherwise NULL.
  *
  */
-function _ip_login_get_user_range($uid) {
+function _ip_login_get_user_range($uid, $mode) {
   if (isset($uid) && is_numeric($uid)) {
     $result = db_query('SELECT * FROM {ip_login_user} WHERE uid = :uid', array(':uid' => $uid));
     foreach ($result as $record) {
-      return $record->ip_match;
+      if ($mode == 4) {
+        return $record->ip_match;
+      }
+      elseif ($mode == 6) {
+        return $record->ip6_match;
+      }
     }
   }
   return NULL;
@@ -607,31 +698,54 @@ function _ip_login_get_user_range($uid) {
  * @param $uid
  *    The user ID
   * @param $ip_range
- *    IP range match string
+ *    IPv4 range match string
+ * @param $ip6_range
+ *    IPv6 range match string
  * @return TRUE
  *    If an update occured sucessfully.
  */
-function _ip_login_set_user_range($uid, $ip_range = NULL) {
+function _ip_login_set_user_range($uid, $ip_range = NULL, $ip6_range = NULL) {
   if (isset($uid) && is_numeric($uid)) {
-    if (is_null($ip_range) || empty($ip_range)) {
-      // null ip range = delete row
+    // delete the row if both ip_range and ip6_range are empty.
+    if (empty($ip_range) && empty($ip6_range)) {
       db_delete('ip_login_user')
         ->condition('uid', $uid)
         ->execute();
     }
     else {
-      if (is_null(_ip_login_get_user_range($uid))) {
-        // no range presently = insert row
+      $ip_match = !empty($ip_range) ? $ip_range : '';
+
+      if (!empty($ip6_range)) {
+        $ip6_array = explode(",", $ip6_range);
+        foreach ($ip6_array as $key => $ip6) {
+          $ip6 = trim($ip6);
+          if (!filter_var($ip6, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            // Remove invalid IPv6 address.
+            unset($ip6_array[$key]);
+          }
+          else {
+            // Expand IPv6 when saving so that it will be easier to compare later on.
+            $ip6_array[$key] = ip_login_ip6_expand($ip6);
+          }
+        }
+        $ip6_match = !empty($ip6_array) ? implode(",", $ip6_array) : '';
+      }
+      else {
+        $ip6_match = '';
+      }
+
+      if (is_null(_ip_login_get_user_range($uid, 4)) && is_null(_ip_login_get_user_range($uid, 6))) {
         db_insert('ip_login_user')
           ->fields(array(
           'uid' => $uid,
-          'ip_match' => $ip_range,
+          'ip_match' => $ip_match,
+          'ip6_match' => $ip6_match,
         ))
         ->execute();
       }
       else {
         db_update('ip_login_user')
-          ->fields(array('ip_match' => $ip_range))
+          ->fields(array('ip_match' => $ip_match, 'ip6_match' => $ip6_match))
           ->condition('uid', $uid)
           ->execute();
       }

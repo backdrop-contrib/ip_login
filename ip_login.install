@@ -32,11 +32,14 @@ function ip_login_schema() {
         'default' => 0,
       ),
       'ip_match' => array(
-        'description' => t('IP ranges and addresses'),
-        'type' => 'varchar',
-        'length' => 255,
-        'not null' => TRUE,
-        'default' => ''
+        'description' => t('IPv4 ranges and addresses'),
+        'type' => 'text',
+        'size' => 'medium',
+      ),
+      'ip6_match' => array(
+        'description' => t('IPv6 ranges and addresses'),
+        'type' => 'text',
+        'size' => 'medium',
       ),
     ),
     'primary key' => array('uid'),
@@ -85,4 +88,30 @@ function ip_login_update_1000() {
   update_variable_del('ip_login_link_login_page_help');
   update_variable_del('ip_login_link_login_page_weight');
   update_variable_del('ip_login_suppress_messages');
+}
+
+/**
+ * Change the data type of 'ip_match' field.
+ */
+function ip_login_update_1001() {
+  db_field_set_no_default('ip_login_user', 'ip_match');
+
+  db_change_field('ip_login_user', 'ip_match', 'ip_match', array(
+    'type' => 'text',
+    'size' => 'medium',
+  ));
+
+  // Clear caches.
+  field_cache_clear();
+}
+
+/**
+ * Add a new field to 'ip_login_user' table.
+ */
+function ip_login_update_1002() {
+  db_add_field('ip_login_user', 'ip6_match', array(
+    'description' => t('IPv6 ranges and addresses'),
+    'type' => 'text',
+    'size' => 'medium',
+  ));
 }
