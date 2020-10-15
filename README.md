@@ -1,13 +1,7 @@
 # IP Login
 
-  Log in automatically via their IP (v4) address ranges or wildcards instead of
-  having to enter a username and password - plus many other features.
-
-## Authors & main contributors
-
-  Originally By David Thomas - davidwhthomas@gmail.com
-  Now maintained by Jim Kirkpatrick - jim@i-jk.co.uk
-  And with help from JohnV and others - Thanks!
+Log in automatically via their IP (v4 and v6) address ranges or wildcards instead of
+having to enter a username and password - plus many other features.
 
 ## Features
 
@@ -58,8 +52,8 @@ When a user visits any Backdrop page (or admin-chosen page), IP Login will:
 
 ## How to test
 
-  You can test it by entering your IP address in the IP login field when
-  editing your user profile, then:
+You can test it by entering your IP address in the IP login field when
+editing your user profile, then:
 
   1. If the site is running on your computer you can probably use the localhost
     loopback IP address of 127.0.0.1 for testing, otherwise you will need to
