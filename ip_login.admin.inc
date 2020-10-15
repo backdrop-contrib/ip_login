@@ -24,13 +24,8 @@ function ip_login_admin_settings() {
   $intro .= ' <p>' . t(
     'It also allows users with the <code>administer ip login</code> and <code>can log in as another user</code> <a href="@permissions-link">permissions</a> to log out and log in as another user, with other users being forced to stay logged in.',
     array('@permissions-link' => '/admin/config/people/permissions#module-ip_login')) . '</p>';
-  $intro .= '<p id="ip_login">' . t('Accepted IP Login match values are:') . '</p>';
-  $intro .= '<ul><li>';
-  $intro .= t("Single IP matches like <code>123.123.123.123</code>") . '</li>';
-  $intro .= '<li>' . t("Wildcards using an asterisk (<code>*</code>) in any quadrant except the first one, for example <code>123.123.123.*</code> or <code>100.*.*.*</code> etc.") . '</li>';
-  $intro .= '<li>' . t("Ranges using a hyphen (<code>-</code>) in any quadrant except the first one, for example <code>123.123.123.100-200</code> etc.") . '</li>';
-  $intro .= '<li>' . t("Any number of comma-separated IP addresses or ranges like <code>10.11.12.13, 123.123.123.100-200, 123.123.124-125.*</code> etc.");
-  $intro .= '</li></ul>';
+  $intro .= ip_login_help_ranges();
+
   $form['introduction']['ip_login'] = array(
     '#markup' => $intro,
   );
@@ -153,7 +148,7 @@ function ip_login_admin_settings() {
     $description = t("Enter one page per line as Backdrop paths. The '*' character is a wildcard. Example paths are %blog for the blog page and %blog-wildcard for every personal blog. %front is the front page. Note you must also enter system paths (e.g. 'node/123') for aliases if you want IP logins to happen there too.", array('%blog' => 'blog', '%blog-wildcard' => 'blog/*', '%front' => '<front>'));
 
     if ($access) {
-      $options[] = t('login by IP if the following PHP code returns <code>TRUE</code> (PHP-mode, experts only).');
+      $options[] = t('Login by IP if the following PHP code returns <code>TRUE</code> (PHP-mode, experts only).');
       $description .= ' ' . t('If the PHP-mode is chosen, enter PHP code between %php. Note that executing incorrect PHP-code can break your Backdrop site.', array('%php' => '<?php ?>'));
     }
     $form['active_pages']['check_mode'] = array(

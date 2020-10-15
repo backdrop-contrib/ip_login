@@ -12,11 +12,12 @@
 ## Features
 
 * IP address matching works on:
-  * Normal single IPs, comma separated: `123.4.5.6` or `123.4.5.6`, `234.5.6.7`
-  * IP ranges: `123.4.5.6-10` or `123.4-111.5.6`
-  * Wildcards: `123.4.5.*` or `123.*.*.*`
+  * Normal single IPv4s, comma separated: `123.4.5.6` or `123.4.5.6, 234.5.6.7`
+  * Normal single IPv6s, leading zeroes suppressed, shortened, comma separated: `2001:db8::1:151:1, 2001:678::`
+  * IPv4 ranges: `123.4.5.6-10` or `123.4-111.5.6`
+  * IPv4 wildcards: `123.4.5.*` or `123.*.*.*`
   * Any combination: `127.0.0.1`, `123.4.5-66.*`, `234.4-5.6-77.*`
-  * Coming soon: IPv6 and Subnet matching via CIDR notation.
+  * TODO: Subnet matching via CIDR notation.
 * Integration with User Login page & block, with customisable text and labels
 * 'Log in by IP' block with simple auto-login link for those who don't want
   to use the modified User Login block.
