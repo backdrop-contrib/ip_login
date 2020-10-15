@@ -14,7 +14,6 @@ define('IP_LOGOUT', 'user/logout'); // path for user logout (different between D
 define('IP_CHECKED', 'ip_login_checked'); // TRUE when IP check has happened
 define('IP_UID_MATCH', 'ip_login_uid'); // TRUE when a user account matches the request IP
 define('LOGIN_AS_DIFFERENT_USER', 'ip_login_as_different_user'); // TRUE when user wants alternate account
-define('CACHE_DISABLED', 0);  // D7 TODO: this is removed from bootstrap.inc, and now in?? --> avoid double definition
 
 /**
  * Implementation of hook_boot().
@@ -122,7 +121,7 @@ function ip_login_is_possible() {
  * Callback function for hook_menu
  */
 function ip_login_attempt_login() {
-  $GLOBALS['conf']['cache'] = FALSE; // don't cache - not sure if this is correct usage
+  backdrop_page_is_cacheable(FALSE);
   $matched_uid = ip_login_check(ip_address());
   if ($matched_uid > 0) {
     ip_login_login($matched_uid);
@@ -472,7 +471,7 @@ function ip_login_login($uid) {
     user_module_invoke('login', $edit, $user);
 
     // following borrowed from ipAuthenticator's login and avoids caching issues
-    if (variable_get('cache', CACHE_DISABLED) != CACHE_DISABLED && !isset($_GET['ip_login_no_cache'])) {
+    if (config_get('system.core', 'cache') && !isset($_GET['ip_login_no_cache'])) {
       // make a url to reload page, remove newlines from the URL to avoid header injection attacks.
       // use admin settings for destination if set.
       $url = config_get('ip_login.settings', 'ip_login_destination');

@@ -210,14 +210,15 @@ function _ip_login_user_list_table() {
   // get all IP-login enabled users and display in a table on the admin page
   $rows = array();
   $result = db_query(
-    "SELECT u.name, u.uid, ip.ip_match
+    "SELECT u.name, u.uid, ip.ip_match, ip.ip6_match
      FROM {users} u
      INNER JOIN {ip_login_user} ip ON ip.uid = u.uid
-     ORDER BY ip.ip_match");
+     ORDER BY u.name");
   foreach ($result as $row) {
     $rows[] = array(
       $row->name,
       $row->ip_match,
+      $row->ip6_match,
       l(
         t('edit'),
         'user/' . $row->uid . '/edit',
@@ -228,7 +229,7 @@ function _ip_login_user_list_table() {
       )
     );
   }
-  $header = array('Username', 'IP ranges', 'Operations');
+  $header = array('Username', 'IPv4 ranges', 'IPv6 ranges', 'Operations');
   if (isset($rows[0])) {
     $table = theme('table', array('header' => $header, 'rows' => $rows));
     $table .= l(
