@@ -35,24 +35,24 @@ function ip_login_admin_settings() {
       array('!link' => '/admin/people/ip_login')
     )
   );
-  $form['ip_login_enabled'] = array(
+  $form['enabled'] = array(
     '#type' => 'checkbox',
     '#title' => t('IP Login enabled'),
     '#description' => t('Check to enable IP Login, uncheck to disable. If unchecked no user will be able to login via IP address.'),
-    '#default_value' => config_get('ip_login.settings', 'ip_login_enabled')
+    '#default_value' => config_get('ip_login.settings', 'enabled')
   );
-  $form['ip_login_suppress_messages'] = array(
+  $form['suppress_messages'] = array(
     '#type' => 'checkbox',
     '#title' => t('Suppress IP Login messages'),
     '#description' => t('Check to prevent IP Login showing any login-related messages.'),
-    '#default_value' => config_get('ip_login.settings', 'ip_login_suppress_messages')
+    '#default_value' => config_get('ip_login.settings', 'suppress_messages')
   );
 
-  $form['ip_login_destination'] = array(
+  $form['destination'] = array(
     '#type' => 'textfield',
     '#title' => t('Destination after successful login by IP'),
     '#description' => t('<strong>Leave blank to send user back to their originally requested page</strong>, or enter the Backdrop path users should be redirected to when automatically logged in. For example "user" or "&lt;front&gt;" etc.'),
-    '#default_value' => config_get('ip_login.settings', 'ip_login_destination')
+    '#default_value' => config_get('ip_login.settings', 'destination')
   );
 
   $form['login_page'] = array(
@@ -60,23 +60,23 @@ function ip_login_admin_settings() {
     '#title' => t('Login page link'),
     '#description' => t('A link with text from the <em>Login page link text</em> to log the user in automatically will be added to the login page unless it is blank.'),
   );
-  $form['login_page']['ip_login_link_login_page'] = array(
+  $form['login_page']['link_login_page'] = array(
     '#type' => 'textfield',
     '#title' => t('Login page link text'),
     '#description' => t('Text for link on login page. Blank to remove link, defaults to "Log in automatically"'),
-    '#default_value' => config_get('ip_login.settings', 'ip_login_link_login_page'),
+    '#default_value' => config_get('ip_login.settings', 'link_login_page'),
   );
-  $form['login_page']['ip_login_link_login_page_help'] = array(
+  $form['login_page']['link_login_page_help'] = array(
     '#type' => 'textfield',
     '#title' => t('Login page help text'),
     '#description' => t("Help text under IP Login link on login page. Defaults to 'Your computer's IP address has been matched and validated.' and will not appear if <em>Login page link text</em> is blank."),
-    '#default_value' => config_get('ip_login.settings', 'ip_login_link_login_page_help'),
+    '#default_value' => config_get('ip_login.settings', 'link_login_page_help'),
   );
-  $form['login_page']['ip_login_link_login_page_weight'] = array(
+  $form['login_page']['link_login_page_weight'] = array(
     '#type' => 'weight',
     '#title' => t('Weight'),
     '#delta' => 20,
-    '#default_value' => config_get('ip_login.settings', 'ip_login_link_login_page_weight'),
+    '#default_value' => config_get('ip_login.settings', 'link_login_page_weight'),
     '#description' => t('Optional. The position within the login page form for this link.'),
   );
 
@@ -85,18 +85,18 @@ function ip_login_admin_settings() {
     '#title' => t('Login block link'),
     '#description' => t('A link with text from the <em>Login page link text</em> to log the user in automatically will be added to the login page unless it is blank.'),
   );
-  $form['login_block']['ip_login_link_login_block'] = array(
+  $form['login_block']['link_login_block'] = array(
     '#type' => 'textfield',
     '#title' => t('Login blocks link text'),
     '#description' => t('Text for link on "User login" and "Log in by IP link" blocks. Use blank to remove link, defaults to "Log in automatically"'),
-    '#default_value' => config_get('ip_login.settings', 'ip_login_link_login_block'),
+    '#default_value' => config_get('ip_login.settings', 'link_login_block'),
     '#required' => FALSE,
   );
-  $form['login_block']['ip_login_link_login_block_weight'] = array(
+  $form['login_block']['link_login_block_weight'] = array(
     '#type' => 'weight',
     '#title' => t('Weight'),
     '#delta' => 20,
-    '#default_value' => config_get('ip_login.settings', 'ip_login_link_login_block_weight'),
+    '#default_value' => config_get('ip_login.settings', 'link_login_block_weight'),
     '#description' => t('Optional. The position within the login block form for this link.'),
   );
 
@@ -107,11 +107,11 @@ function ip_login_admin_settings() {
     '#description' => t('You can alter other messages here and include tokens listed below.'),
   );
   $message_default = 'Account [user:name] does not have permission to log out once automatically logged in. You have been logged back in.';
-  $form['other_messages']['ip_login_logged_back_in'] = array(
+  $form['other_messages']['logged_back_in'] = array(
     '#type' => 'textarea',
     '#title' => t('User automatically logged back after attempting logout without permission'),
     '#description' => t('Text for the message "' . $message_default . '"'),
-    '#default_value' => config_get('ip_login.settings', 'ip_login_logged_back_in'),
+    '#default_value' => config_get('ip_login.settings', 'logged_back_in'),
     '#cols' => 100,
     '#rows' => 5,
     '#required' => FALSE,
@@ -130,7 +130,7 @@ function ip_login_admin_settings() {
     '#collapsible' => FALSE,
   );
   $access = user_access('use PHP for block visibility');
-  $pages = config_get('ip_login.settings', 'ip_login_active_pages');
+  $pages = config_get('ip_login.settings', 'active_pages');
   if ($pages) {
     $check_mode = substr($pages, 0, 1);
     $pages = substr($pages, 1);
@@ -191,10 +191,10 @@ function ip_login_user_list() {
  */
 function ip_login_admin_settings_submit($form, &$form_state) {
   if ($form_state['values']['check_pages']) {
-    config_set('ip_login.settings', 'ip_login_active_pages', $form_state['values']['check_mode'] . $form_state['values']['check_pages']);
+    config_set('ip_login.settings', 'active_pages', $form_state['values']['check_mode'] . $form_state['values']['check_pages']);
   }
   else {
-    config_set('ip_login.settings', 'ip_login_active_pages', '');
+    config_set('ip_login.settings', 'active_pages', '');
   }
 }
 

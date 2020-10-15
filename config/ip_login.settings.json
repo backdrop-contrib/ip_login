@@ -1,19 +1,19 @@
 {
   "_config_name": "ip_login.settings",
   "_config_translatables": [
-      "ip_login_logged_back_in",
-      "ip_login_link_login_block",
-      "ip_login_link_login_page",
-      "ip_login_link_login_page_help"
+      "logged_back_in",
+      "link_login_block",
+      "link_login_page",
+      "link_login_page_help"
   ],
-  "ip_login_active_pages": "",
-  "ip_login_enabled": 1,
-  "ip_login_destination": "user",
-  "ip_login_logged_back_in" : "Account [user:name] does not have permission to log out once automatically logged in. You have been logged back in.",
-  "ip_login_link_login_block": "Log in automatically",
-  "ip_login_link_login_block_weight": -10,
-  "ip_login_link_login_page": "Log in automatically",
-  "ip_login_link_login_page_help": "Your computer's IP address has been matched and validated.",
-  "ip_login_link_login_page_weight": -10,
-  "ip_login_suppress_messages": 0
+  "active_pages": "",
+  "enabled": 1,
+  "destination": "user",
+  "logged_back_in" : "Account [user:name] does not have permission to log out once automatically logged in. You have been logged back in.",
+  "link_login_block": "Log in automatically",
+  "link_login_block_weight": -10,
+  "link_login_page": "Log in automatically",
+  "link_login_page_help": "Your computer's IP address has been matched and validated.",
+  "link_login_page_weight": -10,
+  "suppress_messages": 0
 }

@@ -26,7 +26,7 @@ function ip_login_boot() {
   if ($user->uid != 0) return;
 
   // skip rest of this if the admin has disabled IP login
-  if (!config_get('ip_login.settings', 'ip_login_enabled')) return;
+  if (!config_get('ip_login.settings', 'enabled')) return;
 
   // Avoid settings cookies if not on an IP Login-enabled page to improve
   // external caching support - http://drupal.org/node/1263234 thanks Vacilando
@@ -161,7 +161,7 @@ function ip_login_attempt_login() {
   if ($matched_uid > 0) {
     ip_login_login($matched_uid);
   }
-  backdrop_goto(config_get('ip_login.settings', 'ip_login_destination'));
+  backdrop_goto(config_get('ip_login.settings', 'destination'));
 }
 
 /**
@@ -190,9 +190,9 @@ function ip_login_form_alter(&$form, &$form_state, $form_id) {
     case 'user_login':
       $matched_uid = ip_login_check(ip_address());
       if ($matched_uid > 0) {
-        $link_text = t(config_get('ip_login.settings', 'ip_login_link_login_page'));
+        $link_text = t(config_get('ip_login.settings', 'link_login_page'));
         if (backdrop_strlen($link_text)) { // hide if no link text
-          $link_help = t(config_get('ip_login.settings', 'ip_login_link_login_page_help'));
+          $link_help = t(config_get('ip_login.settings', 'link_login_page_help'));
           $markup = '<br/>';
           $markup .= '<ul class="item-list">';
           $markup .= '<li><strong>' . l($link_text, ATTEMPT_IP_LOGIN, array('query' => array('ip_login_override_pages' => 'yes'))) . '</strong>';
@@ -200,7 +200,7 @@ function ip_login_form_alter(&$form, &$form_state, $form_id) {
           $markup .= '</li></ul>';
           $form['ip_login'] = array(
             '#markup' => $markup,
-            '#weight' => config_get('ip_login.settings', 'ip_login_link_login_page_weight'),
+            '#weight' => config_get('ip_login.settings', 'link_login_page_weight'),
           );
         }
       }
@@ -208,14 +208,14 @@ function ip_login_form_alter(&$form, &$form_state, $form_id) {
     case 'user_login_block':
       $matched_uid = ip_login_check(ip_address());
       if ($matched_uid > 0) {
-        $link_text = t(config_get('ip_login.settings', 'ip_login_link_login_block'));
+        $link_text = t(config_get('ip_login.settings', 'link_login_block'));
         if (backdrop_strlen($link_text)) { // hide if no link text
           $markup = '<ul class="item-list">';
           $markup .= '<li><strong>' . l($link_text, ATTEMPT_IP_LOGIN, array('query' => array('ip_login_override_pages' => 'yes'))) . '</strong>';
           $markup .= '</li></ul>';
           $form['ip_login'] = array(
             '#markup' => $markup,
-            '#weight' => config_get('ip_login.settings', 'ip_login_link_login_page_weight'),
+            '#weight' => config_get('ip_login.settings', 'link_login_page_weight'),
           );
         }
       }
@@ -280,7 +280,7 @@ function ip_login_block_view($delta = '') {
   if ($delta <> 'ip-login-link') return;
   // build simple block
   // @todo should be a hook_theme call
-  $link_text = t(config_get('ip_login.settings', 'ip_login_link_login_block'));
+  $link_text = t(config_get('ip_login.settings', 'link_login_block'));
   $markup = '<div class="ip-login-available"><span class="ip-login-link">';
   $markup .= l($link_text, ATTEMPT_IP_LOGIN, array('query' => array('ip_login_override_pages' => 'yes')));
   $markup .= '</span></div>';
@@ -452,7 +452,7 @@ function ip_login_ip6_expand($ip) {
  */
 function ip_login_check_path() {
   if (!isset($_GET['ip_login_override_pages'])) {
-    $pages = config_get('ip_login.settings', 'ip_login_active_pages');
+    $pages = config_get('ip_login.settings', 'active_pages');
     if ($pages) {
       $page_match = FALSE;
       // first char, if variable set, is 'check_mode' - remainder is paths to match or PHP
@@ -517,7 +517,7 @@ function ip_login_login($uid) {
     // login by assigning account to global $user object
     global $user;
     $user = $account;
-    if (!config_get('ip_login.settings', 'ip_login_suppress_messages')) {
+    if (!config_get('ip_login.settings', 'suppress_messages')) {
       // notify user - if messages not suppressed
       $message = t(
         'Welcome %name. You have been automatically logged into %sitename.',
@@ -558,7 +558,7 @@ function ip_login_login($uid) {
     if (config_get('system.core', 'cache') && !isset($_GET['ip_login_no_cache'])) {
       // make a url to reload page, remove newlines from the URL to avoid header injection attacks.
       // use admin settings for destination if set.
-      $url = config_get('ip_login.settings', 'ip_login_destination');
+      $url = config_get('ip_login.settings', 'destination');
       if (backdrop_strlen($url) == 0) $url = str_replace(array("\n", "\r"), '', $_GET["q"]);
       if ($url == 'logout') $url = '<front>';
       $url = url($url, array('query' => array('ip_login_no_cache=' . md5(time())), 'absolute' => TRUE));
@@ -608,12 +608,12 @@ function ip_login_user_logout() {
   if (!$can_login_as_another_user) {
     // @todo: it is possible that some other hook_user_logout() has been called already
     // does this generate an undetermined state?
-    $message = t(config_get('ip_login.settings', 'ip_login_logged_back_in')
+    $message = t(config_get('ip_login.settings', 'logged_back_in')
     );
     $message = token_replace($message, array('user' => $user), array('clear' => TRUE));
     backdrop_set_message($message, 'warning');
     // show the login page
-    backdrop_goto(config_get('ip_login.settings', 'ip_login_destination'));
+    backdrop_goto(config_get('ip_login.settings', 'destination'));
   }
 }
 

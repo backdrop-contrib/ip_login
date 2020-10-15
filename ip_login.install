@@ -14,7 +14,7 @@ function ip_login_install() {
       '!link' => l($t('Configure'), 'admin/config/people/ip_login'),
     )));
   }
-  config_set('ip_login.settings', 'ip_login_enabled', 1);
+  config_set('ip_login.settings', 'enabled', 1);
 }
 
 /**
@@ -66,22 +66,23 @@ function ip_login_uninstall() {
 function ip_login_update_1000() {
   // Migrate variables to config.
   $config = config('ip_login.settings');
-  $config->set('', update_config_get('ip_login.settings', '', 0));
-  $config->set('', update_variable_get('ip_login_active_pages', ''));
-  $config->set('', update_variable_get('ip_login_enabled', 1));
-  $config->set('', update_variable_get('ip_login_destination', 'user'));
-  $config->set('', update_variable_get('ip_login_link_login_block', 'Log in automatically'));
-  $config->set('', update_variable_get('ip_login_link_login_block_weight', -10));
-  $config->set('', update_variable_get('ip_login_link_login_page', 'Log in automatically'));
-  $config->set('', update_variable_get('ip_login_link_login_page_help', "Your computer's IP address has been matched and validated."));
-  $config->set('', update_variable_get('ip_login_link_login_page_weight', -10));
-  $config->set('', update_variable_get('ip_login_suppress_messages', 0));
+  $config->set('active_pages', update_variable_get('ip_login_active_pages', ''));
+  $config->set('enabled', update_variable_get('ip_login_enabled', 1));
+  $config->set('destination', update_variable_get('ip_login_destination', 'user'));
+  $config->set('logged_back_in', update_variable_get('ip_login_logged_back_in', 'Account [user:name] does not have permission to log out once automatically logged in. You have been logged back in.'));
+  $config->set('link_login_block', update_variable_get('ip_login_link_login_block', 'Log in automatically'));
+  $config->set('link_login_block_weight', update_variable_get('ip_login_link_login_block_weight', -10));
+  $config->set('link_login_page', update_variable_get('ip_login_link_login_page', 'Log in automatically'));
+  $config->set('link_login_page_help', update_variable_get('ip_login_link_login_page_help', "Your computer's IP address has been matched and validated."));
+  $config->set('link_login_page_weight', update_variable_get('ip_login_link_login_page_weight', -10));
+  $config->set('suppress_messages', update_variable_get('ip_login_suppress_messages', 0));
   $config->save();
 
   // Delete variables.
   update_variable_del('ip_login_active_pages');
   update_variable_del('ip_login_enabled');
   update_variable_del('ip_login_destination');
+  update_variable_del('ip_login_logged_back_in');
   update_variable_del('ip_login_link_login_block');
   update_variable_del('ip_login_link_login_block_weight');
   update_variable_del('ip_login_link_login_page');
